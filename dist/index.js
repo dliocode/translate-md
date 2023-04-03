@@ -20755,6 +20755,8 @@ function writeToFile() {
     unified().use(stringify).stringify(readmeAST), // toMarkdown  
     "utf8"
   );
+
+  console.log({ writeToFilereadmeAST: readmeAST, jsonstringfy: JSON.stringify(readmeAST) })
 }
 
 async function commitChanges(lang) {
@@ -20763,10 +20765,11 @@ async function commitChanges(lang) {
   await git.addConfig("user.name", "github-actions[bot]");
   await git.addConfig("user.email", "41898282+github-actions[bot]@users.noreply.github.com");
   await git.commit(`Added README."${lang}".md - Translate by https://github.com/dliocode/translate-md`);
-  await git.push((err, update) => {
-    if (err) console.error({ err })
-    else if (update) console.log({ changes: update.summary })
-  });
+  await git.push(['-u', 'origin', 'main'])
+  // await git.push((err, update) => {
+  //   if (err) console.error({ err })
+  //   else if (update) console.log({ changes: update.summary })
+  // });
 
 
   console.log("commit finish!");
