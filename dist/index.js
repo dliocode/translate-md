@@ -20551,7 +20551,7 @@ const mainDir = ".";
 
 let README = readdirSync(mainDir).includes("readme.md") ? "readme.md" : "README.md";
 
-const lang_from = core.getInput("LANG_FROM") || "en";
+const lang_from = core.getInput("LANG_FROM") || "auto";
 const lang_to = core.getInput("LANG_TO") || "pt";
 
 const readme = readFileSync(join(mainDir, README), { encoding: "utf8" });
@@ -20605,6 +20605,7 @@ async function translateReadme() {
     await commitChanges(lang);
     console.log("Done");
   } catch (error) {
+    console.log(JSON.stringify(error))
     throw new Error(error);
   }
 }
