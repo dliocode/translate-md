@@ -20745,15 +20745,25 @@ const lang = core.getInput("LANG") || "pt";
 const readme = readFileSync(join(mainDir, README), { encoding: "utf8" });
 const readmeAST = unified().use(parse).parse(readme)// toAst
 
+let originalText = [];
+
 visit(readmeAST, async (node) => {
-  console.log({ node: JSON.stringify(node) })
+  if (node.type === "text") {
+    console.log({ node: JSON.stringify(node) })
 
-  if (node.type === "text") node.value = (await translate(node.value, { to: lang })).text;
+    originalText.push(node.value); //node.value = (await translate(node.value, { to: lang })).text;
 
-  console.log({ node2: JSON.stringify(node) })
+    console.log({ node2: JSON.stringify(node) })
+  }
 });
 
-function writeToFile() {
+const translatedText = originalText.map(async (text) => {
+  return (await translate(text, { to: lang })).text;
+});
+
+async function writeToFile() {
+  await Promise.all(translatedText);
+
   writeFileSync(
     join(mainDir, `README.${lang}.md`),
     unified().use(stringify).stringify(readmeAST), // toMarkdown  
@@ -20781,7 +20791,7 @@ async function commitChanges(lang) {
 
 async function translateReadme() {
   try {
-    writeToFile();
+    await writeToFile();
     await commitChanges(lang);
     console.log("Done");
   } catch (error) {
