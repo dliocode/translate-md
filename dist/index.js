@@ -20790,7 +20790,7 @@ async function commitChanges(lang) {
   console.log("commit started");
   await git.add("./*");
   await git.addConfig("user.name", "github-actions[bot]");
-  await git.addConfig("user.email", "github-actions[bot]@users.noreply.github.com");
+  await git.addConfig("user.email", "41898282+github-actions[bot]@users.noreply.github.com");
   await git.commit(`Added README."${lang}".md - Translate by https://github.com/dliocode/translate-md`);
   await git.push();
   console.log("commit finish");
