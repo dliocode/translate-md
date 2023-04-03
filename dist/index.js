@@ -20746,7 +20746,11 @@ const readme = readFileSync(join(mainDir, README), { encoding: "utf8" });
 const readmeAST = unified().use(parse).parse(readme)// toAst
 
 visit(readmeAST, async (node) => {
+  console.log({ node: JSON.stringify(node) })
+
   if (node.type === "text") node.value = (await translate(node.value, { to: lang })).text;
+
+  console.log({ node2: JSON.stringify(node) })
 });
 
 function writeToFile() {
