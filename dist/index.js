@@ -20559,8 +20559,11 @@ let originalText = [];
 
 visit(readmeAST, async (node) => {
   if (node.type === "text") {
+    const data = node.value
     originalText.push(node.value);
     node.value = (await translator(node.value, { to: lang })).text;
+
+    console.log({ data, translate: node.value })
   }
 });
 
