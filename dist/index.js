@@ -1919,6 +1919,23 @@ exports["default"] = deferred;
 
 /***/ }),
 
+/***/ 7240:
+/***/ ((module) => {
+
+"use strict";
+
+
+module.exports = bail
+
+function bail(err) {
+  if (err) {
+    throw err
+  }
+}
+
+
+/***/ }),
+
 /***/ 6582:
 /***/ ((module) => {
 
@@ -3539,6 +3556,24 @@ module.exports = function isBuffer (obj) {
 
 /***/ }),
 
+/***/ 864:
+/***/ ((module) => {
+
+"use strict";
+
+
+module.exports = value => {
+	if (Object.prototype.toString.call(value) !== '[object Object]') {
+		return false;
+	}
+
+	const prototype = Object.getPrototypeOf(value);
+	return prototype === null || prototype === Object.prototype;
+};
+
+
+/***/ }),
+
 /***/ 4409:
 /***/ ((module) => {
 
@@ -3866,6 +3901,32 @@ module.exports = function (url) {
 
 	return url.replace(/^(?!(?:\w+:)?\/\/)/, 'http://');
 };
+
+
+/***/ }),
+
+/***/ 5198:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+var path = __nccwpck_require__(1017);
+
+function replaceExt(npath, ext) {
+  if (typeof npath !== 'string') {
+    return npath;
+  }
+
+  if (npath.length === 0) {
+    return npath;
+  }
+
+  var nFileName = path.basename(npath, path.extname(npath)) + ext;
+  return path.join(path.dirname(npath), nFileName);
+}
+
+module.exports = replaceExt;
 
 
 /***/ }),
@@ -9320,6 +9381,160 @@ module.exports.languages = languages;
 
 /***/ }),
 
+/***/ 3604:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+var wrap = __nccwpck_require__(3458)
+
+module.exports = trough
+
+trough.wrap = wrap
+
+var slice = [].slice
+
+// Create new middleware.
+function trough() {
+  var fns = []
+  var middleware = {}
+
+  middleware.run = run
+  middleware.use = use
+
+  return middleware
+
+  // Run `fns`.  Last argument must be a completion handler.
+  function run() {
+    var index = -1
+    var input = slice.call(arguments, 0, -1)
+    var done = arguments[arguments.length - 1]
+
+    if (typeof done !== 'function') {
+      throw new Error('Expected function as last argument, not ' + done)
+    }
+
+    next.apply(null, [null].concat(input))
+
+    // Run the next `fn`, if any.
+    function next(err) {
+      var fn = fns[++index]
+      var params = slice.call(arguments, 0)
+      var values = params.slice(1)
+      var length = input.length
+      var pos = -1
+
+      if (err) {
+        done(err)
+        return
+      }
+
+      // Copy non-nully input into values.
+      while (++pos < length) {
+        if (values[pos] === null || values[pos] === undefined) {
+          values[pos] = input[pos]
+        }
+      }
+
+      input = values
+
+      // Next or done.
+      if (fn) {
+        wrap(fn, next).apply(null, input)
+      } else {
+        done.apply(null, [null].concat(input))
+      }
+    }
+  }
+
+  // Add `fn` to the list.
+  function use(fn) {
+    if (typeof fn !== 'function') {
+      throw new Error('Expected `fn` to be a function, not ' + fn)
+    }
+
+    fns.push(fn)
+
+    return middleware
+  }
+}
+
+
+/***/ }),
+
+/***/ 3458:
+/***/ ((module) => {
+
+"use strict";
+
+
+var slice = [].slice
+
+module.exports = wrap
+
+// Wrap `fn`.
+// Can be sync or async; return a promise, receive a completion handler, return
+// new values and errors.
+function wrap(fn, callback) {
+  var invoked
+
+  return wrapped
+
+  function wrapped() {
+    var params = slice.call(arguments, 0)
+    var callback = fn.length > params.length
+    var result
+
+    if (callback) {
+      params.push(done)
+    }
+
+    try {
+      result = fn.apply(null, params)
+    } catch (error) {
+      // Well, this is quite the pickle.
+      // `fn` received a callback and invoked it (thus continuing the pipeline),
+      // but later also threw an error.
+      // We’re not about to restart the pipeline again, so the only thing left
+      // to do is to throw the thing instead.
+      if (callback && invoked) {
+        throw error
+      }
+
+      return done(error)
+    }
+
+    if (!callback) {
+      if (result && typeof result.then === 'function') {
+        result.then(then, done)
+      } else if (result instanceof Error) {
+        done(result)
+      } else {
+        then(result)
+      }
+    }
+  }
+
+  // Invoke `next`, only once.
+  function done() {
+    if (!invoked) {
+      invoked = true
+
+      callback.apply(null, arguments)
+    }
+  }
+
+  // Invoke `done` with one value.
+  // Tracks if an error is passed, too.
+  function then(value) {
+    done(null, value)
+  }
+}
+
+
+/***/ }),
+
 /***/ 4294:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -9596,6 +9811,806 @@ if (process.env.NODE_DEBUG && /\btunnel\b/.test(process.env.NODE_DEBUG)) {
   debug = function() {};
 }
 exports.debug = debug; // for test
+
+
+/***/ }),
+
+/***/ 5075:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+var bail = __nccwpck_require__(7240)
+var buffer = __nccwpck_require__(5625)
+var extend = __nccwpck_require__(8171)
+var plain = __nccwpck_require__(864)
+var trough = __nccwpck_require__(3604)
+var vfile = __nccwpck_require__(4860)
+
+// Expose a frozen processor.
+module.exports = unified().freeze()
+
+var slice = [].slice
+var own = {}.hasOwnProperty
+
+// Process pipeline.
+var pipeline = trough()
+  .use(pipelineParse)
+  .use(pipelineRun)
+  .use(pipelineStringify)
+
+function pipelineParse(p, ctx) {
+  ctx.tree = p.parse(ctx.file)
+}
+
+function pipelineRun(p, ctx, next) {
+  p.run(ctx.tree, ctx.file, done)
+
+  function done(err, tree, file) {
+    if (err) {
+      next(err)
+    } else {
+      ctx.tree = tree
+      ctx.file = file
+      next()
+    }
+  }
+}
+
+function pipelineStringify(p, ctx) {
+  var result = p.stringify(ctx.tree, ctx.file)
+  var file = ctx.file
+
+  if (result === undefined || result === null) {
+    // Empty.
+  } else if (typeof result === 'string' || buffer(result)) {
+    file.contents = result
+  } else {
+    file.result = result
+  }
+}
+
+// Function to create the first processor.
+function unified() {
+  var attachers = []
+  var transformers = trough()
+  var namespace = {}
+  var frozen = false
+  var freezeIndex = -1
+
+  // Data management.
+  processor.data = data
+
+  // Lock.
+  processor.freeze = freeze
+
+  // Plugins.
+  processor.attachers = attachers
+  processor.use = use
+
+  // API.
+  processor.parse = parse
+  processor.stringify = stringify
+  processor.run = run
+  processor.runSync = runSync
+  processor.process = process
+  processor.processSync = processSync
+
+  // Expose.
+  return processor
+
+  // Create a new processor based on the processor in the current scope.
+  function processor() {
+    var destination = unified()
+    var length = attachers.length
+    var index = -1
+
+    while (++index < length) {
+      destination.use.apply(null, attachers[index])
+    }
+
+    destination.data(extend(true, {}, namespace))
+
+    return destination
+  }
+
+  // Freeze: used to signal a processor that has finished configuration.
+  //
+  // For example, take unified itself: it’s frozen.
+  // Plugins should not be added to it.
+  // Rather, it should be extended, by invoking it, before modifying it.
+  //
+  // In essence, always invoke this when exporting a processor.
+  function freeze() {
+    var values
+    var plugin
+    var options
+    var transformer
+
+    if (frozen) {
+      return processor
+    }
+
+    while (++freezeIndex < attachers.length) {
+      values = attachers[freezeIndex]
+      plugin = values[0]
+      options = values[1]
+      transformer = null
+
+      if (options === false) {
+        continue
+      }
+
+      if (options === true) {
+        values[1] = undefined
+      }
+
+      transformer = plugin.apply(processor, values.slice(1))
+
+      if (typeof transformer === 'function') {
+        transformers.use(transformer)
+      }
+    }
+
+    frozen = true
+    freezeIndex = Infinity
+
+    return processor
+  }
+
+  // Data management.
+  // Getter / setter for processor-specific informtion.
+  function data(key, value) {
+    if (typeof key === 'string') {
+      // Set `key`.
+      if (arguments.length === 2) {
+        assertUnfrozen('data', frozen)
+
+        namespace[key] = value
+
+        return processor
+      }
+
+      // Get `key`.
+      return (own.call(namespace, key) && namespace[key]) || null
+    }
+
+    // Set space.
+    if (key) {
+      assertUnfrozen('data', frozen)
+      namespace = key
+      return processor
+    }
+
+    // Get space.
+    return namespace
+  }
+
+  // Plugin management.
+  //
+  // Pass it:
+  // *   an attacher and options,
+  // *   a preset,
+  // *   a list of presets, attachers, and arguments (list of attachers and
+  //     options).
+  function use(value) {
+    var settings
+
+    assertUnfrozen('use', frozen)
+
+    if (value === null || value === undefined) {
+      // Empty.
+    } else if (typeof value === 'function') {
+      addPlugin.apply(null, arguments)
+    } else if (typeof value === 'object') {
+      if ('length' in value) {
+        addList(value)
+      } else {
+        addPreset(value)
+      }
+    } else {
+      throw new Error('Expected usable value, not `' + value + '`')
+    }
+
+    if (settings) {
+      namespace.settings = extend(namespace.settings || {}, settings)
+    }
+
+    return processor
+
+    function addPreset(result) {
+      addList(result.plugins)
+
+      if (result.settings) {
+        settings = extend(settings || {}, result.settings)
+      }
+    }
+
+    function add(value) {
+      if (typeof value === 'function') {
+        addPlugin(value)
+      } else if (typeof value === 'object') {
+        if ('length' in value) {
+          addPlugin.apply(null, value)
+        } else {
+          addPreset(value)
+        }
+      } else {
+        throw new Error('Expected usable value, not `' + value + '`')
+      }
+    }
+
+    function addList(plugins) {
+      var length
+      var index
+
+      if (plugins === null || plugins === undefined) {
+        // Empty.
+      } else if (typeof plugins === 'object' && 'length' in plugins) {
+        length = plugins.length
+        index = -1
+
+        while (++index < length) {
+          add(plugins[index])
+        }
+      } else {
+        throw new Error('Expected a list of plugins, not `' + plugins + '`')
+      }
+    }
+
+    function addPlugin(plugin, value) {
+      var entry = find(plugin)
+
+      if (entry) {
+        if (plain(entry[1]) && plain(value)) {
+          value = extend(entry[1], value)
+        }
+
+        entry[1] = value
+      } else {
+        attachers.push(slice.call(arguments))
+      }
+    }
+  }
+
+  function find(plugin) {
+    var length = attachers.length
+    var index = -1
+    var entry
+
+    while (++index < length) {
+      entry = attachers[index]
+
+      if (entry[0] === plugin) {
+        return entry
+      }
+    }
+  }
+
+  // Parse a file (in string or vfile representation) into a unist node using
+  // the `Parser` on the processor.
+  function parse(doc) {
+    var file = vfile(doc)
+    var Parser
+
+    freeze()
+    Parser = processor.Parser
+    assertParser('parse', Parser)
+
+    if (newable(Parser, 'parse')) {
+      return new Parser(String(file), file).parse()
+    }
+
+    return Parser(String(file), file) // eslint-disable-line new-cap
+  }
+
+  // Run transforms on a unist node representation of a file (in string or
+  // vfile representation), async.
+  function run(node, file, cb) {
+    assertNode(node)
+    freeze()
+
+    if (!cb && typeof file === 'function') {
+      cb = file
+      file = null
+    }
+
+    if (!cb) {
+      return new Promise(executor)
+    }
+
+    executor(null, cb)
+
+    function executor(resolve, reject) {
+      transformers.run(node, vfile(file), done)
+
+      function done(err, tree, file) {
+        tree = tree || node
+        if (err) {
+          reject(err)
+        } else if (resolve) {
+          resolve(tree)
+        } else {
+          cb(null, tree, file)
+        }
+      }
+    }
+  }
+
+  // Run transforms on a unist node representation of a file (in string or
+  // vfile representation), sync.
+  function runSync(node, file) {
+    var complete = false
+    var result
+
+    run(node, file, done)
+
+    assertDone('runSync', 'run', complete)
+
+    return result
+
+    function done(err, tree) {
+      complete = true
+      bail(err)
+      result = tree
+    }
+  }
+
+  // Stringify a unist node representation of a file (in string or vfile
+  // representation) into a string using the `Compiler` on the processor.
+  function stringify(node, doc) {
+    var file = vfile(doc)
+    var Compiler
+
+    freeze()
+    Compiler = processor.Compiler
+    assertCompiler('stringify', Compiler)
+    assertNode(node)
+
+    if (newable(Compiler, 'compile')) {
+      return new Compiler(node, file).compile()
+    }
+
+    return Compiler(node, file) // eslint-disable-line new-cap
+  }
+
+  // Parse a file (in string or vfile representation) into a unist node using
+  // the `Parser` on the processor, then run transforms on that node, and
+  // compile the resulting node using the `Compiler` on the processor, and
+  // store that result on the vfile.
+  function process(doc, cb) {
+    freeze()
+    assertParser('process', processor.Parser)
+    assertCompiler('process', processor.Compiler)
+
+    if (!cb) {
+      return new Promise(executor)
+    }
+
+    executor(null, cb)
+
+    function executor(resolve, reject) {
+      var file = vfile(doc)
+
+      pipeline.run(processor, {file: file}, done)
+
+      function done(err) {
+        if (err) {
+          reject(err)
+        } else if (resolve) {
+          resolve(file)
+        } else {
+          cb(null, file)
+        }
+      }
+    }
+  }
+
+  // Process the given document (in string or vfile representation), sync.
+  function processSync(doc) {
+    var complete = false
+    var file
+
+    freeze()
+    assertParser('processSync', processor.Parser)
+    assertCompiler('processSync', processor.Compiler)
+    file = vfile(doc)
+
+    process(file, done)
+
+    assertDone('processSync', 'process', complete)
+
+    return file
+
+    function done(err) {
+      complete = true
+      bail(err)
+    }
+  }
+}
+
+// Check if `value` is a constructor.
+function newable(value, name) {
+  return (
+    typeof value === 'function' &&
+    value.prototype &&
+    // A function with keys in its prototype is probably a constructor.
+    // Classes’ prototype methods are not enumerable, so we check if some value
+    // exists in the prototype.
+    (keys(value.prototype) || name in value.prototype)
+  )
+}
+
+// Check if `value` is an object with keys.
+function keys(value) {
+  var key
+  for (key in value) {
+    return true
+  }
+
+  return false
+}
+
+// Assert a parser is available.
+function assertParser(name, Parser) {
+  if (typeof Parser !== 'function') {
+    throw new Error('Cannot `' + name + '` without `Parser`')
+  }
+}
+
+// Assert a compiler is available.
+function assertCompiler(name, Compiler) {
+  if (typeof Compiler !== 'function') {
+    throw new Error('Cannot `' + name + '` without `Compiler`')
+  }
+}
+
+// Assert the processor is not frozen.
+function assertUnfrozen(name, frozen) {
+  if (frozen) {
+    throw new Error(
+      'Cannot invoke `' +
+        name +
+        '` on a frozen processor.\nCreate a new processor first, by invoking it: use `processor()` instead of `processor`.'
+    )
+  }
+}
+
+// Assert `node` is a unist node.
+function assertNode(node) {
+  if (!node || typeof node.type !== 'string') {
+    throw new Error('Expected node, got `' + node + '`')
+  }
+}
+
+// Assert that `complete` is `true`.
+function assertDone(name, asyncName, complete) {
+  if (!complete) {
+    throw new Error(
+      '`' + name + '` finished async. Use `' + asyncName + '` instead'
+    )
+  }
+}
+
+
+/***/ }),
+
+/***/ 4070:
+/***/ ((module) => {
+
+"use strict";
+
+
+module.exports = convert
+
+function convert(test) {
+  if (typeof test === 'string') {
+    return typeFactory(test)
+  }
+
+  if (test === null || test === undefined) {
+    return ok
+  }
+
+  if (typeof test === 'object') {
+    return ('length' in test ? anyFactory : matchesFactory)(test)
+  }
+
+  if (typeof test === 'function') {
+    return test
+  }
+
+  throw new Error('Expected function, string, or object as test')
+}
+
+function convertAll(tests) {
+  var results = []
+  var length = tests.length
+  var index = -1
+
+  while (++index < length) {
+    results[index] = convert(tests[index])
+  }
+
+  return results
+}
+
+// Utility assert each property in `test` is represented in `node`, and each
+// values are strictly equal.
+function matchesFactory(test) {
+  return matches
+
+  function matches(node) {
+    var key
+
+    for (key in test) {
+      if (node[key] !== test[key]) {
+        return false
+      }
+    }
+
+    return true
+  }
+}
+
+function anyFactory(tests) {
+  var checks = convertAll(tests)
+  var length = checks.length
+
+  return matches
+
+  function matches() {
+    var index = -1
+
+    while (++index < length) {
+      if (checks[index].apply(this, arguments)) {
+        return true
+      }
+    }
+
+    return false
+  }
+}
+
+// Utility to convert a string into a function which checks a given node’s type
+// for said string.
+function typeFactory(test) {
+  return type
+
+  function type(node) {
+    return Boolean(node && node.type === test)
+  }
+}
+
+// Utility to return true.
+function ok() {
+  return true
+}
+
+
+/***/ }),
+
+/***/ 1957:
+/***/ ((module) => {
+
+"use strict";
+
+
+var own = {}.hasOwnProperty
+
+module.exports = stringify
+
+function stringify(value) {
+  // Nothing.
+  if (!value || typeof value !== 'object') {
+    return ''
+  }
+
+  // Node.
+  if (own.call(value, 'position') || own.call(value, 'type')) {
+    return position(value.position)
+  }
+
+  // Position.
+  if (own.call(value, 'start') || own.call(value, 'end')) {
+    return position(value)
+  }
+
+  // Point.
+  if (own.call(value, 'line') || own.call(value, 'column')) {
+    return point(value)
+  }
+
+  // ?
+  return ''
+}
+
+function point(point) {
+  if (!point || typeof point !== 'object') {
+    point = {}
+  }
+
+  return index(point.line) + ':' + index(point.column)
+}
+
+function position(pos) {
+  if (!pos || typeof pos !== 'object') {
+    pos = {}
+  }
+
+  return point(pos.start) + '-' + point(pos.end)
+}
+
+function index(value) {
+  return value && typeof value === 'number' ? value : 1
+}
+
+
+/***/ }),
+
+/***/ 9906:
+/***/ ((module) => {
+
+module.exports = color
+function color(d) {
+  return '\u001B[33m' + d + '\u001B[39m'
+}
+
+
+/***/ }),
+
+/***/ 3246:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+module.exports = visitParents
+
+var convert = __nccwpck_require__(4070)
+var color = __nccwpck_require__(9906)
+
+var CONTINUE = true
+var SKIP = 'skip'
+var EXIT = false
+
+visitParents.CONTINUE = CONTINUE
+visitParents.SKIP = SKIP
+visitParents.EXIT = EXIT
+
+function visitParents(tree, test, visitor, reverse) {
+  var is
+
+  if (func(test) && !func(visitor)) {
+    reverse = visitor
+    visitor = test
+    test = null
+  }
+
+  is = convert(test)
+
+  one(tree, null, [])()
+
+  function one(child, index, parents) {
+    var value = object(child) ? child : {}
+    var name
+
+    if (string(value.type)) {
+      name = string(value.tagName)
+        ? value.tagName
+        : string(value.name)
+        ? value.name
+        : undefined
+
+      node.displayName =
+        'node (' + color(value.type + (name ? '<' + name + '>' : '')) + ')'
+    }
+
+    return node
+
+    function node() {
+      var result = []
+      var subresult
+
+      if (!test || is(child, index, parents[parents.length - 1] || null)) {
+        result = toResult(visitor(child, parents))
+
+        if (result[0] === EXIT) {
+          return result
+        }
+      }
+
+      if (!child.children || result[0] === SKIP) {
+        return result
+      }
+
+      subresult = toResult(children(child.children, parents.concat(child)))
+      return subresult[0] === EXIT ? subresult : result
+    }
+  }
+
+  // Visit children in `parent`.
+  function children(children, parents) {
+    var min = -1
+    var step = reverse ? -1 : 1
+    var index = (reverse ? children.length : min) + step
+    var child
+    var result
+
+    while (index > min && index < children.length) {
+      child = children[index]
+      result = one(child, index, parents)()
+
+      if (result[0] === EXIT) {
+        return result
+      }
+
+      index = typeof result[1] === 'number' ? result[1] : index + step
+    }
+  }
+}
+
+function toResult(value) {
+  if (object(value) && 'length' in value) {
+    return value
+  }
+
+  if (typeof value === 'number') {
+    return [CONTINUE, value]
+  }
+
+  return [value]
+}
+
+function func(d) {
+  return typeof d === 'function'
+}
+
+function string(d) {
+  return typeof d === 'string'
+}
+
+function object(d) {
+  return typeof d === 'object' && d !== null
+}
+
+
+/***/ }),
+
+/***/ 199:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+module.exports = visit
+
+var visitParents = __nccwpck_require__(3246)
+
+var CONTINUE = visitParents.CONTINUE
+var SKIP = visitParents.SKIP
+var EXIT = visitParents.EXIT
+
+visit.CONTINUE = CONTINUE
+visit.SKIP = SKIP
+visit.EXIT = EXIT
+
+function visit(tree, test, visitor, reverse) {
+  if (typeof test === 'function' && typeof visitor !== 'function') {
+    reverse = visitor
+    visitor = test
+    test = null
+  }
+
+  visitParents(tree, test, overload, reverse)
+
+  function overload(node, parents) {
+    var parent = parents[parents.length - 1]
+    var index = parent ? parent.children.indexOf(node) : null
+    return visitor(node, index, parent)
+  }
+}
 
 
 /***/ }),
@@ -10309,6 +11324,343 @@ function version(uuid) {
 
 var _default = version;
 exports["default"] = _default;
+
+/***/ }),
+
+/***/ 4108:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+var stringify = __nccwpck_require__(1957)
+
+module.exports = VMessage
+
+// Inherit from `Error#`.
+function VMessagePrototype() {}
+VMessagePrototype.prototype = Error.prototype
+VMessage.prototype = new VMessagePrototype()
+
+// Message properties.
+var proto = VMessage.prototype
+
+proto.file = ''
+proto.name = ''
+proto.reason = ''
+proto.message = ''
+proto.stack = ''
+proto.fatal = null
+proto.column = null
+proto.line = null
+
+// Construct a new VMessage.
+//
+// Note: We cannot invoke `Error` on the created context, as that adds readonly
+// `line` and `column` attributes on Safari 9, thus throwing and failing the
+// data.
+function VMessage(reason, position, origin) {
+  var parts
+  var range
+  var location
+
+  if (typeof position === 'string') {
+    origin = position
+    position = null
+  }
+
+  parts = parseOrigin(origin)
+  range = stringify(position) || '1:1'
+
+  location = {
+    start: {line: null, column: null},
+    end: {line: null, column: null}
+  }
+
+  // Node.
+  if (position && position.position) {
+    position = position.position
+  }
+
+  if (position) {
+    // Position.
+    if (position.start) {
+      location = position
+      position = position.start
+    } else {
+      // Point.
+      location.start = position
+    }
+  }
+
+  if (reason.stack) {
+    this.stack = reason.stack
+    reason = reason.message
+  }
+
+  this.message = reason
+  this.name = range
+  this.reason = reason
+  this.line = position ? position.line : null
+  this.column = position ? position.column : null
+  this.location = location
+  this.source = parts[0]
+  this.ruleId = parts[1]
+}
+
+function parseOrigin(origin) {
+  var result = [null, null]
+  var index
+
+  if (typeof origin === 'string') {
+    index = origin.indexOf(':')
+
+    if (index === -1) {
+      result[1] = origin
+    } else {
+      result[0] = origin.slice(0, index)
+      result[1] = origin.slice(index + 1)
+    }
+  }
+
+  return result
+}
+
+
+/***/ }),
+
+/***/ 2136:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+var path = __nccwpck_require__(1017)
+var replace = __nccwpck_require__(5198)
+var buffer = __nccwpck_require__(5625)
+
+module.exports = VFile
+
+var own = {}.hasOwnProperty
+var proto = VFile.prototype
+
+// Order of setting (least specific to most), we need this because otherwise
+// `{stem: 'a', path: '~/b.js'}` would throw, as a path is needed before a
+// stem can be set.
+var order = ['history', 'path', 'basename', 'stem', 'extname', 'dirname']
+
+proto.toString = toString
+
+// Access full path (`~/index.min.js`).
+Object.defineProperty(proto, 'path', {get: getPath, set: setPath})
+
+// Access parent path (`~`).
+Object.defineProperty(proto, 'dirname', {get: getDirname, set: setDirname})
+
+// Access basename (`index.min.js`).
+Object.defineProperty(proto, 'basename', {get: getBasename, set: setBasename})
+
+// Access extname (`.js`).
+Object.defineProperty(proto, 'extname', {get: getExtname, set: setExtname})
+
+// Access stem (`index.min`).
+Object.defineProperty(proto, 'stem', {get: getStem, set: setStem})
+
+// Construct a new file.
+function VFile(options) {
+  var prop
+  var index
+  var length
+
+  if (!options) {
+    options = {}
+  } else if (typeof options === 'string' || buffer(options)) {
+    options = {contents: options}
+  } else if ('message' in options && 'messages' in options) {
+    return options
+  }
+
+  if (!(this instanceof VFile)) {
+    return new VFile(options)
+  }
+
+  this.data = {}
+  this.messages = []
+  this.history = []
+  this.cwd = process.cwd()
+
+  // Set path related properties in the correct order.
+  index = -1
+  length = order.length
+
+  while (++index < length) {
+    prop = order[index]
+
+    if (own.call(options, prop)) {
+      this[prop] = options[prop]
+    }
+  }
+
+  // Set non-path related properties.
+  for (prop in options) {
+    if (order.indexOf(prop) === -1) {
+      this[prop] = options[prop]
+    }
+  }
+}
+
+function getPath() {
+  return this.history[this.history.length - 1]
+}
+
+function setPath(path) {
+  assertNonEmpty(path, 'path')
+
+  if (path !== this.path) {
+    this.history.push(path)
+  }
+}
+
+function getDirname() {
+  return typeof this.path === 'string' ? path.dirname(this.path) : undefined
+}
+
+function setDirname(dirname) {
+  assertPath(this.path, 'dirname')
+  this.path = path.join(dirname || '', this.basename)
+}
+
+function getBasename() {
+  return typeof this.path === 'string' ? path.basename(this.path) : undefined
+}
+
+function setBasename(basename) {
+  assertNonEmpty(basename, 'basename')
+  assertPart(basename, 'basename')
+  this.path = path.join(this.dirname || '', basename)
+}
+
+function getExtname() {
+  return typeof this.path === 'string' ? path.extname(this.path) : undefined
+}
+
+function setExtname(extname) {
+  var ext = extname || ''
+
+  assertPart(ext, 'extname')
+  assertPath(this.path, 'extname')
+
+  if (ext) {
+    if (ext.charAt(0) !== '.') {
+      throw new Error('`extname` must start with `.`')
+    }
+
+    if (ext.indexOf('.', 1) !== -1) {
+      throw new Error('`extname` cannot contain multiple dots')
+    }
+  }
+
+  this.path = replace(this.path, ext)
+}
+
+function getStem() {
+  return typeof this.path === 'string'
+    ? path.basename(this.path, this.extname)
+    : undefined
+}
+
+function setStem(stem) {
+  assertNonEmpty(stem, 'stem')
+  assertPart(stem, 'stem')
+  this.path = path.join(this.dirname || '', stem + (this.extname || ''))
+}
+
+// Get the value of the file.
+function toString(encoding) {
+  var value = this.contents || ''
+  return buffer(value) ? value.toString(encoding) : String(value)
+}
+
+// Assert that `part` is not a path (i.e., does not contain `path.sep`).
+function assertPart(part, name) {
+  if (part.indexOf(path.sep) !== -1) {
+    throw new Error(
+      '`' + name + '` cannot be a path: did not expect `' + path.sep + '`'
+    )
+  }
+}
+
+// Assert that `part` is not empty.
+function assertNonEmpty(part, name) {
+  if (!part) {
+    throw new Error('`' + name + '` cannot be empty')
+  }
+}
+
+// Assert `path` exists.
+function assertPath(path, name) {
+  if (!path) {
+    throw new Error('Setting `' + name + '` requires `path` to be set too')
+  }
+}
+
+
+/***/ }),
+
+/***/ 4860:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+var VMessage = __nccwpck_require__(4108)
+var VFile = __nccwpck_require__(2136)
+
+module.exports = VFile
+
+var proto = VFile.prototype
+
+proto.message = message
+proto.info = info
+proto.fail = fail
+
+// Create a message with `reason` at `position`.
+// When an error is passed in as `reason`, copies the stack.
+function message(reason, position, origin) {
+  var filePath = this.path
+  var message = new VMessage(reason, position, origin)
+
+  if (filePath) {
+    message.name = filePath + ':' + message.name
+    message.file = filePath
+  }
+
+  message.fatal = false
+
+  this.messages.push(message)
+
+  return message
+}
+
+// Fail: creates a vmessage, associates it with the file, and throws it.
+function fail() {
+  var message = this.message.apply(this, arguments)
+
+  message.fatal = true
+
+  throw message
+}
+
+// Info: creates a vmessage, associates it with the file, and marks the fatality
+// as null.
+function info() {
+  var message = this.message.apply(this, arguments)
+
+  message.fatal = null
+
+  return message
+}
+
 
 /***/ }),
 
@@ -12852,7 +14204,7 @@ function decode($0, $1, $2) {
 
 /***/ }),
 
-/***/ 2729:
+/***/ 2943:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
 
 "use strict";
@@ -19365,8 +20717,92 @@ function postprocess(events) {
 var micromark_util_decode_numeric_character_reference = __nccwpck_require__(3987);
 // EXTERNAL MODULE: ./node_modules/micromark-util-decode-string/index.js
 var micromark_util_decode_string = __nccwpck_require__(4381);
-// EXTERNAL MODULE: ./node_modules/unist-util-stringify-position/lib/index.js
-var unist_util_stringify_position_lib = __nccwpck_require__(7924);
+;// CONCATENATED MODULE: ./node_modules/mdast-util-from-markdown/node_modules/unist-util-stringify-position/lib/index.js
+/**
+ * @typedef {import('unist').Node} Node
+ * @typedef {import('unist').Point} Point
+ * @typedef {import('unist').Position} Position
+ */
+
+/**
+ * @typedef NodeLike
+ * @property {string} type
+ * @property {PositionLike | null | undefined} [position]
+ *
+ * @typedef PositionLike
+ * @property {PointLike | null | undefined} [start]
+ * @property {PointLike | null | undefined} [end]
+ *
+ * @typedef PointLike
+ * @property {number | null | undefined} [line]
+ * @property {number | null | undefined} [column]
+ * @property {number | null | undefined} [offset]
+ */
+
+/**
+ * Serialize the positional info of a point, position (start and end points),
+ * or node.
+ *
+ * @param {Node | NodeLike | Position | PositionLike | Point | PointLike | null | undefined} [value]
+ *   Node, position, or point.
+ * @returns {string}
+ *   Pretty printed positional info of a node (`string`).
+ *
+ *   In the format of a range `ls:cs-le:ce` (when given `node` or `position`)
+ *   or a point `l:c` (when given `point`), where `l` stands for line, `c` for
+ *   column, `s` for `start`, and `e` for end.
+ *   An empty string (`''`) is returned if the given value is neither `node`,
+ *   `position`, nor `point`.
+ */
+function stringifyPosition(value) {
+  // Nothing.
+  if (!value || typeof value !== 'object') {
+    return ''
+  }
+
+  // Node.
+  if ('position' in value || 'type' in value) {
+    return position(value.position)
+  }
+
+  // Position.
+  if ('start' in value || 'end' in value) {
+    return position(value)
+  }
+
+  // Point.
+  if ('line' in value || 'column' in value) {
+    return point(value)
+  }
+
+  // ?
+  return ''
+}
+
+/**
+ * @param {Point | PointLike | null | undefined} point
+ * @returns {string}
+ */
+function point(point) {
+  return index(point && point.line) + ':' + index(point && point.column)
+}
+
+/**
+ * @param {Position | PositionLike | null | undefined} pos
+ * @returns {string}
+ */
+function position(pos) {
+  return point(pos && pos.start) + '-' + point(pos && pos.end)
+}
+
+/**
+ * @param {number | null | undefined} value
+ * @returns {number}
+ */
+function index(value) {
+  return value && typeof value === 'number' ? value : 1
+}
+
 ;// CONCATENATED MODULE: ./node_modules/mdast-util-from-markdown/lib/index.js
 /**
  * @typedef {import('micromark-util-types').Encoding} Encoding
@@ -19741,7 +21177,7 @@ function compiler(options) {
 
     // Figure out `root` position.
     tree.position = {
-      start: point(
+      start: lib_point(
         events.length > 0
           ? events[0][1].start
           : {
@@ -19750,7 +21186,7 @@ function compiler(options) {
               offset: 0
             }
       ),
-      end: point(
+      end: lib_point(
         events.length > 0
           ? events[events.length - 2][1].end
           : {
@@ -19988,7 +21424,7 @@ function compiler(options) {
     this.tokenStack.push([token, errorHandler])
     // @ts-expect-error: `end` will be patched later.
     node.position = {
-      start: point(token.start)
+      start: lib_point(token.start)
     }
     return node
   }
@@ -20033,7 +21469,7 @@ function compiler(options) {
         'Cannot close `' +
           token.type +
           '` (' +
-          (0,unist_util_stringify_position_lib/* stringifyPosition */.y)({
+          stringifyPosition({
             start: token.start,
             end: token.end
           }) +
@@ -20047,7 +21483,7 @@ function compiler(options) {
         handler.call(this, token, open[0])
       }
     }
-    node.position.end = point(token.end)
+    node.position.end = lib_point(token.end)
     return node
   }
 
@@ -20218,7 +21654,7 @@ function compiler(options) {
       tail = text()
       // @ts-expect-error: we’ll add `end` later.
       tail.position = {
-        start: point(token.start)
+        start: lib_point(token.start)
       }
       // @ts-expect-error: Assume `parent` accepts `text`.
       node.children.push(tail)
@@ -20234,7 +21670,7 @@ function compiler(options) {
   function onexitdata(token) {
     const tail = this.stack.pop()
     tail.value += this.sliceSerialize(token)
-    tail.position.end = point(token.end)
+    tail.position.end = lib_point(token.end)
   }
 
   /**
@@ -20247,7 +21683,7 @@ function compiler(options) {
     // If we’re at a hard break, include the line ending in there.
     if (getData('atHardBreak')) {
       const tail = context.children[context.children.length - 1]
-      tail.position.end = point(token.end)
+      tail.position.end = lib_point(token.end)
       setData('atHardBreak')
       return
     }
@@ -20484,7 +21920,7 @@ function compiler(options) {
     }
     const tail = this.stack.pop()
     tail.value += value
-    tail.position.end = point(token.end)
+    tail.position.end = lib_point(token.end)
   }
 
   /**
@@ -20670,7 +22106,7 @@ function compiler(options) {
  * @returns {Point}
  *   unist point.
  */
-function point(d) {
+function lib_point(d) {
   return {
     line: d.line,
     column: d.column,
@@ -20732,14 +22168,14 @@ function defaultOnError(left, right) {
       'Cannot close `' +
         left.type +
         '` (' +
-        (0,unist_util_stringify_position_lib/* stringifyPosition */.y)({
+        stringifyPosition({
           start: left.start,
           end: left.end
         }) +
         '): a different token (`' +
         right.type +
         '`, ' +
-        (0,unist_util_stringify_position_lib/* stringifyPosition */.y)({
+        stringifyPosition({
           start: right.start,
           end: right.end
         }) +
@@ -20750,7 +22186,7 @@ function defaultOnError(left, right) {
       'Cannot close document, a token (`' +
         right.type +
         '`, ' +
-        (0,unist_util_stringify_position_lib/* stringifyPosition */.y)({
+        stringifyPosition({
           start: right.start,
           end: right.end
         }) +
@@ -20797,7 +22233,7 @@ function remarkParse(options) {
 
 /***/ }),
 
-/***/ 4252:
+/***/ 4937:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
 
 "use strict";
@@ -21426,12 +22862,747 @@ function emphasisPeek(_, _1, state) {
   return state.options.emphasis || '*'
 }
 
-// EXTERNAL MODULE: ./node_modules/unist-util-visit/lib/index.js
-var lib = __nccwpck_require__(7942);
-// EXTERNAL MODULE: ./node_modules/unist-util-visit-parents/lib/index.js + 1 modules
-var unist_util_visit_parents_lib = __nccwpck_require__(2304);
+;// CONCATENATED MODULE: ./node_modules/mdast-util-to-markdown/node_modules/unist-util-is/lib/index.js
+/**
+ * @typedef {import('unist').Node} Node
+ * @typedef {import('unist').Parent} Parent
+ */
+
+/**
+ * @typedef {Record<string, unknown>} Props
+ * @typedef {null | undefined | string | Props | TestFunctionAnything | Array<string | Props | TestFunctionAnything>} Test
+ *   Check for an arbitrary node, unaware of TypeScript inferral.
+ *
+ * @callback TestFunctionAnything
+ *   Check if a node passes a test, unaware of TypeScript inferral.
+ * @param {unknown} this
+ *   The given context.
+ * @param {Node} node
+ *   A node.
+ * @param {number | null | undefined} [index]
+ *   The node’s position in its parent.
+ * @param {Parent | null | undefined} [parent]
+ *   The node’s parent.
+ * @returns {boolean | void}
+ *   Whether this node passes the test.
+ */
+
+/**
+ * @template {Node} Kind
+ *   Node type.
+ * @typedef {Kind['type'] | Partial<Kind> | TestFunctionPredicate<Kind> | Array<Kind['type'] | Partial<Kind> | TestFunctionPredicate<Kind>>} PredicateTest
+ *   Check for a node that can be inferred by TypeScript.
+ */
+
+/**
+ * Check if a node passes a certain test.
+ *
+ * @template {Node} Kind
+ *   Node type.
+ * @callback TestFunctionPredicate
+ *   Complex test function for a node that can be inferred by TypeScript.
+ * @param {Node} node
+ *   A node.
+ * @param {number | null | undefined} [index]
+ *   The node’s position in its parent.
+ * @param {Parent | null | undefined} [parent]
+ *   The node’s parent.
+ * @returns {node is Kind}
+ *   Whether this node passes the test.
+ */
+
+/**
+ * @callback AssertAnything
+ *   Check that an arbitrary value is a node, unaware of TypeScript inferral.
+ * @param {unknown} [node]
+ *   Anything (typically a node).
+ * @param {number | null | undefined} [index]
+ *   The node’s position in its parent.
+ * @param {Parent | null | undefined} [parent]
+ *   The node’s parent.
+ * @returns {boolean}
+ *   Whether this is a node and passes a test.
+ */
+
+/**
+ * Check if a node is a node and passes a certain node test.
+ *
+ * @template {Node} Kind
+ *   Node type.
+ * @callback AssertPredicate
+ *   Check that an arbitrary value is a specific node, aware of TypeScript.
+ * @param {unknown} [node]
+ *   Anything (typically a node).
+ * @param {number | null | undefined} [index]
+ *   The node’s position in its parent.
+ * @param {Parent | null | undefined} [parent]
+ *   The node’s parent.
+ * @returns {node is Kind}
+ *   Whether this is a node and passes a test.
+ */
+
+/**
+ * Check if `node` is a `Node` and whether it passes the given test.
+ *
+ * @param node
+ *   Thing to check, typically `Node`.
+ * @param test
+ *   A check for a specific node.
+ * @param index
+ *   The node’s position in its parent.
+ * @param parent
+ *   The node’s parent.
+ * @returns
+ *   Whether `node` is a node and passes a test.
+ */
+const is =
+  /**
+   * @type {(
+   *   (() => false) &
+   *   (<Kind extends Node = Node>(node: unknown, test: PredicateTest<Kind>, index: number, parent: Parent, context?: unknown) => node is Kind) &
+   *   (<Kind extends Node = Node>(node: unknown, test: PredicateTest<Kind>, index?: null | undefined, parent?: null | undefined, context?: unknown) => node is Kind) &
+   *   ((node: unknown, test: Test, index: number, parent: Parent, context?: unknown) => boolean) &
+   *   ((node: unknown, test?: Test, index?: null | undefined, parent?: null | undefined, context?: unknown) => boolean)
+   * )}
+   */
+  (
+    /**
+     * @param {unknown} [node]
+     * @param {Test} [test]
+     * @param {number | null | undefined} [index]
+     * @param {Parent | null | undefined} [parent]
+     * @param {unknown} [context]
+     * @returns {boolean}
+     */
+    // eslint-disable-next-line max-params
+    function is(node, test, index, parent, context) {
+      const check = convert(test)
+
+      if (
+        index !== undefined &&
+        index !== null &&
+        (typeof index !== 'number' ||
+          index < 0 ||
+          index === Number.POSITIVE_INFINITY)
+      ) {
+        throw new Error('Expected positive finite index')
+      }
+
+      if (
+        parent !== undefined &&
+        parent !== null &&
+        (!is(parent) || !parent.children)
+      ) {
+        throw new Error('Expected parent node')
+      }
+
+      if (
+        (parent === undefined || parent === null) !==
+        (index === undefined || index === null)
+      ) {
+        throw new Error('Expected both parent and index')
+      }
+
+      // @ts-expect-error Looks like a node.
+      return node && node.type && typeof node.type === 'string'
+        ? Boolean(check.call(context, node, index, parent))
+        : false
+    }
+  )
+
+/**
+ * Generate an assertion from a test.
+ *
+ * Useful if you’re going to test many nodes, for example when creating a
+ * utility where something else passes a compatible test.
+ *
+ * The created function is a bit faster because it expects valid input only:
+ * a `node`, `index`, and `parent`.
+ *
+ * @param test
+ *   *   when nullish, checks if `node` is a `Node`.
+ *   *   when `string`, works like passing `(node) => node.type === test`.
+ *   *   when `function` checks if function passed the node is true.
+ *   *   when `object`, checks that all keys in test are in node, and that they have (strictly) equal values.
+ *   *   when `array`, checks if any one of the subtests pass.
+ * @returns
+ *   An assertion.
+ */
+const convert =
+  /**
+   * @type {(
+   *   (<Kind extends Node>(test: PredicateTest<Kind>) => AssertPredicate<Kind>) &
+   *   ((test?: Test) => AssertAnything)
+   * )}
+   */
+  (
+    /**
+     * @param {Test} [test]
+     * @returns {AssertAnything}
+     */
+    function (test) {
+      if (test === undefined || test === null) {
+        return ok
+      }
+
+      if (typeof test === 'string') {
+        return typeFactory(test)
+      }
+
+      if (typeof test === 'object') {
+        return Array.isArray(test) ? anyFactory(test) : propsFactory(test)
+      }
+
+      if (typeof test === 'function') {
+        return castFactory(test)
+      }
+
+      throw new Error('Expected function, string, or object as test')
+    }
+  )
+
+/**
+ * @param {Array<string | Props | TestFunctionAnything>} tests
+ * @returns {AssertAnything}
+ */
+function anyFactory(tests) {
+  /** @type {Array<AssertAnything>} */
+  const checks = []
+  let index = -1
+
+  while (++index < tests.length) {
+    checks[index] = convert(tests[index])
+  }
+
+  return castFactory(any)
+
+  /**
+   * @this {unknown}
+   * @param {Array<unknown>} parameters
+   * @returns {boolean}
+   */
+  function any(...parameters) {
+    let index = -1
+
+    while (++index < checks.length) {
+      if (checks[index].call(this, ...parameters)) return true
+    }
+
+    return false
+  }
+}
+
+/**
+ * Turn an object into a test for a node with a certain fields.
+ *
+ * @param {Props} check
+ * @returns {AssertAnything}
+ */
+function propsFactory(check) {
+  return castFactory(all)
+
+  /**
+   * @param {Node} node
+   * @returns {boolean}
+   */
+  function all(node) {
+    /** @type {string} */
+    let key
+
+    for (key in check) {
+      // @ts-expect-error: hush, it sure works as an index.
+      if (node[key] !== check[key]) return false
+    }
+
+    return true
+  }
+}
+
+/**
+ * Turn a string into a test for a node with a certain type.
+ *
+ * @param {string} check
+ * @returns {AssertAnything}
+ */
+function typeFactory(check) {
+  return castFactory(type)
+
+  /**
+   * @param {Node} node
+   */
+  function type(node) {
+    return node && node.type === check
+  }
+}
+
+/**
+ * Turn a custom test into a test for a node that passes that test.
+ *
+ * @param {TestFunctionAnything} check
+ * @returns {AssertAnything}
+ */
+function castFactory(check) {
+  return assertion
+
+  /**
+   * @this {unknown}
+   * @param {unknown} node
+   * @param {Array<unknown>} parameters
+   * @returns {boolean}
+   */
+  function assertion(node, ...parameters) {
+    return Boolean(
+      node &&
+        typeof node === 'object' &&
+        'type' in node &&
+        // @ts-expect-error: fine.
+        Boolean(check.call(this, node, ...parameters))
+    )
+  }
+}
+
+function ok() {
+  return true
+}
+
+;// CONCATENATED MODULE: ./node_modules/mdast-util-to-markdown/node_modules/unist-util-visit-parents/lib/color.js
+/**
+ * @param {string} d
+ * @returns {string}
+ */
+function color(d) {
+  return '\u001B[33m' + d + '\u001B[39m'
+}
+
+;// CONCATENATED MODULE: ./node_modules/mdast-util-to-markdown/node_modules/unist-util-visit-parents/lib/index.js
+/**
+ * @typedef {import('unist').Node} Node
+ * @typedef {import('unist').Parent} Parent
+ * @typedef {import('unist-util-is').Test} Test
+ */
+
+/**
+ * @typedef {boolean | 'skip'} Action
+ *   Union of the action types.
+ *
+ * @typedef {number} Index
+ *   Move to the sibling at `index` next (after node itself is completely
+ *   traversed).
+ *
+ *   Useful if mutating the tree, such as removing the node the visitor is
+ *   currently on, or any of its previous siblings.
+ *   Results less than 0 or greater than or equal to `children.length` stop
+ *   traversing the parent.
+ *
+ * @typedef {[(Action | null | undefined | void)?, (Index | null | undefined)?]} ActionTuple
+ *   List with one or two values, the first an action, the second an index.
+ *
+ * @typedef {Action | ActionTuple | Index | null | undefined | void} VisitorResult
+ *   Any value that can be returned from a visitor.
+ */
+
+/**
+ * @template {Node} [Visited=Node]
+ *   Visited node type.
+ * @template {Parent} [Ancestor=Parent]
+ *   Ancestor type.
+ * @callback Visitor
+ *   Handle a node (matching `test`, if given).
+ *
+ *   Visitors are free to transform `node`.
+ *   They can also transform the parent of node (the last of `ancestors`).
+ *
+ *   Replacing `node` itself, if `SKIP` is not returned, still causes its
+ *   descendants to be walked (which is a bug).
+ *
+ *   When adding or removing previous siblings of `node` (or next siblings, in
+ *   case of reverse), the `Visitor` should return a new `Index` to specify the
+ *   sibling to traverse after `node` is traversed.
+ *   Adding or removing next siblings of `node` (or previous siblings, in case
+ *   of reverse) is handled as expected without needing to return a new `Index`.
+ *
+ *   Removing the children property of an ancestor still results in them being
+ *   traversed.
+ * @param {Visited} node
+ *   Found node.
+ * @param {Array<Ancestor>} ancestors
+ *   Ancestors of `node`.
+ * @returns {VisitorResult}
+ *   What to do next.
+ *
+ *   An `Index` is treated as a tuple of `[CONTINUE, Index]`.
+ *   An `Action` is treated as a tuple of `[Action]`.
+ *
+ *   Passing a tuple back only makes sense if the `Action` is `SKIP`.
+ *   When the `Action` is `EXIT`, that action can be returned.
+ *   When the `Action` is `CONTINUE`, `Index` can be returned.
+ */
+
+/**
+ * @template {Node} [Tree=Node]
+ *   Tree type.
+ * @template {Test} [Check=string]
+ *   Test type.
+ * @typedef {Visitor<import('./complex-types.js').Matches<import('./complex-types.js').InclusiveDescendant<Tree>, Check>, Extract<import('./complex-types.js').InclusiveDescendant<Tree>, Parent>>} BuildVisitor
+ *   Build a typed `Visitor` function from a tree and a test.
+ *
+ *   It will infer which values are passed as `node` and which as `parents`.
+ */
+
+
+
+
+/**
+ * Continue traversing as normal.
+ */
+const CONTINUE = true
+
+/**
+ * Stop traversing immediately.
+ */
+const EXIT = false
+
+/**
+ * Do not traverse this node’s children.
+ */
+const SKIP = 'skip'
+
+/**
+ * Visit nodes, with ancestral information.
+ *
+ * This algorithm performs *depth-first* *tree traversal* in *preorder*
+ * (**NLR**) or if `reverse` is given, in *reverse preorder* (**NRL**).
+ *
+ * You can choose for which nodes `visitor` is called by passing a `test`.
+ * For complex tests, you should test yourself in `visitor`, as it will be
+ * faster and will have improved type information.
+ *
+ * Walking the tree is an intensive task.
+ * Make use of the return values of the visitor when possible.
+ * Instead of walking a tree multiple times, walk it once, use `unist-util-is`
+ * to check if a node matches, and then perform different operations.
+ *
+ * You can change the tree.
+ * See `Visitor` for more info.
+ *
+ * @param tree
+ *   Tree to traverse.
+ * @param test
+ *   `unist-util-is`-compatible test
+ * @param visitor
+ *   Handle each node.
+ * @param reverse
+ *   Traverse in reverse preorder (NRL) instead of the default preorder (NLR).
+ * @returns
+ *   Nothing.
+ */
+const visitParents =
+  /**
+   * @type {(
+   *   (<Tree extends Node, Check extends Test>(tree: Tree, test: Check, visitor: BuildVisitor<Tree, Check>, reverse?: boolean | null | undefined) => void) &
+   *   (<Tree extends Node>(tree: Tree, visitor: BuildVisitor<Tree>, reverse?: boolean | null | undefined) => void)
+   * )}
+   */
+  (
+    /**
+     * @param {Node} tree
+     * @param {Test} test
+     * @param {Visitor<Node>} visitor
+     * @param {boolean | null | undefined} [reverse]
+     * @returns {void}
+     */
+    function (tree, test, visitor, reverse) {
+      if (typeof test === 'function' && typeof visitor !== 'function') {
+        reverse = visitor
+        // @ts-expect-error no visitor given, so `visitor` is test.
+        visitor = test
+        test = null
+      }
+
+      const is = convert(test)
+      const step = reverse ? -1 : 1
+
+      factory(tree, undefined, [])()
+
+      /**
+       * @param {Node} node
+       * @param {number | undefined} index
+       * @param {Array<Parent>} parents
+       */
+      function factory(node, index, parents) {
+        /** @type {Record<string, unknown>} */
+        // @ts-expect-error: hush
+        const value = node && typeof node === 'object' ? node : {}
+
+        if (typeof value.type === 'string') {
+          const name =
+            // `hast`
+            typeof value.tagName === 'string'
+              ? value.tagName
+              : // `xast`
+              typeof value.name === 'string'
+              ? value.name
+              : undefined
+
+          Object.defineProperty(visit, 'name', {
+            value:
+              'node (' + color(node.type + (name ? '<' + name + '>' : '')) + ')'
+          })
+        }
+
+        return visit
+
+        function visit() {
+          /** @type {ActionTuple} */
+          let result = []
+          /** @type {ActionTuple} */
+          let subresult
+          /** @type {number} */
+          let offset
+          /** @type {Array<Parent>} */
+          let grandparents
+
+          if (!test || is(node, index, parents[parents.length - 1] || null)) {
+            result = toResult(visitor(node, parents))
+
+            if (result[0] === EXIT) {
+              return result
+            }
+          }
+
+          // @ts-expect-error looks like a parent.
+          if (node.children && result[0] !== SKIP) {
+            // @ts-expect-error looks like a parent.
+            offset = (reverse ? node.children.length : -1) + step
+            // @ts-expect-error looks like a parent.
+            grandparents = parents.concat(node)
+
+            // @ts-expect-error looks like a parent.
+            while (offset > -1 && offset < node.children.length) {
+              // @ts-expect-error looks like a parent.
+              subresult = factory(node.children[offset], offset, grandparents)()
+
+              if (subresult[0] === EXIT) {
+                return subresult
+              }
+
+              offset =
+                typeof subresult[1] === 'number' ? subresult[1] : offset + step
+            }
+          }
+
+          return result
+        }
+      }
+    }
+  )
+
+/**
+ * Turn a return value into a clean result.
+ *
+ * @param {VisitorResult} value
+ *   Valid return values from visitors.
+ * @returns {ActionTuple}
+ *   Clean result.
+ */
+function toResult(value) {
+  if (Array.isArray(value)) {
+    return value
+  }
+
+  if (typeof value === 'number') {
+    return [CONTINUE, value]
+  }
+
+  return [value]
+}
+
+;// CONCATENATED MODULE: ./node_modules/mdast-util-to-markdown/node_modules/unist-util-visit/lib/index.js
+/**
+ * @typedef {import('unist').Node} Node
+ * @typedef {import('unist').Parent} Parent
+ * @typedef {import('unist-util-is').Test} Test
+ * @typedef {import('unist-util-visit-parents').VisitorResult} VisitorResult
+ */
+
+/**
+ * Check if `Child` can be a child of `Ancestor`.
+ *
+ * Returns the ancestor when `Child` can be a child of `Ancestor`, or returns
+ * `never`.
+ *
+ * @template {Node} Ancestor
+ *   Node type.
+ * @template {Node} Child
+ *   Node type.
+ * @typedef {(
+ *   Ancestor extends Parent
+ *     ? Child extends Ancestor['children'][number]
+ *       ? Ancestor
+ *       : never
+ *     : never
+ * )} ParentsOf
+ */
+
+/**
+ * @template {Node} [Visited=Node]
+ *   Visited node type.
+ * @template {Parent} [Ancestor=Parent]
+ *   Ancestor type.
+ * @callback Visitor
+ *   Handle a node (matching `test`, if given).
+ *
+ *   Visitors are free to transform `node`.
+ *   They can also transform `parent`.
+ *
+ *   Replacing `node` itself, if `SKIP` is not returned, still causes its
+ *   descendants to be walked (which is a bug).
+ *
+ *   When adding or removing previous siblings of `node` (or next siblings, in
+ *   case of reverse), the `Visitor` should return a new `Index` to specify the
+ *   sibling to traverse after `node` is traversed.
+ *   Adding or removing next siblings of `node` (or previous siblings, in case
+ *   of reverse) is handled as expected without needing to return a new `Index`.
+ *
+ *   Removing the children property of `parent` still results in them being
+ *   traversed.
+ * @param {Visited} node
+ *   Found node.
+ * @param {Visited extends Node ? number | null : never} index
+ *   Index of `node` in `parent`.
+ * @param {Ancestor extends Node ? Ancestor | null : never} parent
+ *   Parent of `node`.
+ * @returns {VisitorResult}
+ *   What to do next.
+ *
+ *   An `Index` is treated as a tuple of `[CONTINUE, Index]`.
+ *   An `Action` is treated as a tuple of `[Action]`.
+ *
+ *   Passing a tuple back only makes sense if the `Action` is `SKIP`.
+ *   When the `Action` is `EXIT`, that action can be returned.
+ *   When the `Action` is `CONTINUE`, `Index` can be returned.
+ */
+
+/**
+ * Build a typed `Visitor` function from a node and all possible parents.
+ *
+ * It will infer which values are passed as `node` and which as `parent`.
+ *
+ * @template {Node} Visited
+ *   Node type.
+ * @template {Parent} Ancestor
+ *   Parent type.
+ * @typedef {Visitor<Visited, ParentsOf<Ancestor, Visited>>} BuildVisitorFromMatch
+ */
+
+/**
+ * Build a typed `Visitor` function from a list of descendants and a test.
+ *
+ * It will infer which values are passed as `node` and which as `parent`.
+ *
+ * @template {Node} Descendant
+ *   Node type.
+ * @template {Test} Check
+ *   Test type.
+ * @typedef {(
+ *   BuildVisitorFromMatch<
+ *     import('unist-util-visit-parents/complex-types.js').Matches<Descendant, Check>,
+ *     Extract<Descendant, Parent>
+ *   >
+ * )} BuildVisitorFromDescendants
+ */
+
+/**
+ * Build a typed `Visitor` function from a tree and a test.
+ *
+ * It will infer which values are passed as `node` and which as `parent`.
+ *
+ * @template {Node} [Tree=Node]
+ *   Node type.
+ * @template {Test} [Check=string]
+ *   Test type.
+ * @typedef {(
+ *   BuildVisitorFromDescendants<
+ *     import('unist-util-visit-parents/complex-types.js').InclusiveDescendant<Tree>,
+ *     Check
+ *   >
+ * )} BuildVisitor
+ */
+
+
+
+/**
+ * Visit nodes.
+ *
+ * This algorithm performs *depth-first* *tree traversal* in *preorder*
+ * (**NLR**) or if `reverse` is given, in *reverse preorder* (**NRL**).
+ *
+ * You can choose for which nodes `visitor` is called by passing a `test`.
+ * For complex tests, you should test yourself in `visitor`, as it will be
+ * faster and will have improved type information.
+ *
+ * Walking the tree is an intensive task.
+ * Make use of the return values of the visitor when possible.
+ * Instead of walking a tree multiple times, walk it once, use `unist-util-is`
+ * to check if a node matches, and then perform different operations.
+ *
+ * You can change the tree.
+ * See `Visitor` for more info.
+ *
+ * @param tree
+ *   Tree to traverse.
+ * @param test
+ *   `unist-util-is`-compatible test
+ * @param visitor
+ *   Handle each node.
+ * @param reverse
+ *   Traverse in reverse preorder (NRL) instead of the default preorder (NLR).
+ * @returns
+ *   Nothing.
+ */
+const visit =
+  /**
+   * @type {(
+   *   (<Tree extends Node, Check extends Test>(tree: Tree, test: Check, visitor: BuildVisitor<Tree, Check>, reverse?: boolean | null | undefined) => void) &
+   *   (<Tree extends Node>(tree: Tree, visitor: BuildVisitor<Tree>, reverse?: boolean | null | undefined) => void)
+   * )}
+   */
+  (
+    /**
+     * @param {Node} tree
+     * @param {Test} test
+     * @param {Visitor} visitor
+     * @param {boolean | null | undefined} [reverse]
+     * @returns {void}
+     */
+    function (tree, test, visitor, reverse) {
+      if (typeof test === 'function' && typeof visitor !== 'function') {
+        reverse = visitor
+        visitor = test
+        test = null
+      }
+
+      visitParents(tree, test, overload, reverse)
+
+      /**
+       * @param {Node} node
+       * @param {Array<Parent>} parents
+       */
+      function overload(node, parents) {
+        const parent = parents[parents.length - 1]
+        return visitor(
+          node,
+          parent ? parent.children.indexOf(node) : null,
+          parent
+        )
+      }
+    }
+  )
+
+
+
 // EXTERNAL MODULE: ./node_modules/mdast-util-to-string/lib/index.js
-var mdast_util_to_string_lib = __nccwpck_require__(4216);
+var lib = __nccwpck_require__(4216);
 ;// CONCATENATED MODULE: ./node_modules/mdast-util-to-markdown/lib/util/format-heading-as-setext.js
 /**
  * @typedef {import('mdast').Heading} Heading
@@ -21451,19 +23622,19 @@ function formatHeadingAsSetext(node, state) {
 
   // Look for literals with a line break.
   // Note that this also
-  ;(0,lib/* visit */.Vn)(node, (node) => {
+  visit(node, (node) => {
     if (
       ('value' in node && /\r?\n|\r/.test(node.value)) ||
       node.type === 'break'
     ) {
       literalWithBreak = true
-      return unist_util_visit_parents_lib/* EXIT */.BK
+      return EXIT
     }
   })
 
   return Boolean(
     (!node.depth || node.depth < 3) &&
-      (0,mdast_util_to_string_lib/* toString */.B)(node) &&
+      (0,lib/* toString */.B)(node) &&
       (state.options.setext || literalWithBreak)
   )
 }
@@ -21847,7 +24018,7 @@ function inlineCodePeek() {
  * @returns {boolean}
  */
 function formatLinkAsAutolink(node, state) {
-  const raw = (0,mdast_util_to_string_lib/* toString */.B)(node)
+  const raw = (0,lib/* toString */.B)(node)
 
   return Boolean(
     !state.options.resourceLink &&
@@ -22444,8 +24615,309 @@ function paragraph(node, _, state, info) {
   return value
 }
 
-// EXTERNAL MODULE: ./node_modules/unist-util-is/lib/index.js
-var unist_util_is_lib = __nccwpck_require__(9607);
+;// CONCATENATED MODULE: ./node_modules/mdast-util-phrasing/node_modules/unist-util-is/lib/index.js
+/**
+ * @typedef {import('unist').Node} Node
+ * @typedef {import('unist').Parent} Parent
+ */
+
+/**
+ * @typedef {Record<string, unknown>} Props
+ * @typedef {null | undefined | string | Props | TestFunctionAnything | Array<string | Props | TestFunctionAnything>} Test
+ *   Check for an arbitrary node, unaware of TypeScript inferral.
+ *
+ * @callback TestFunctionAnything
+ *   Check if a node passes a test, unaware of TypeScript inferral.
+ * @param {unknown} this
+ *   The given context.
+ * @param {Node} node
+ *   A node.
+ * @param {number | null | undefined} [index]
+ *   The node’s position in its parent.
+ * @param {Parent | null | undefined} [parent]
+ *   The node’s parent.
+ * @returns {boolean | void}
+ *   Whether this node passes the test.
+ */
+
+/**
+ * @template {Node} Kind
+ *   Node type.
+ * @typedef {Kind['type'] | Partial<Kind> | TestFunctionPredicate<Kind> | Array<Kind['type'] | Partial<Kind> | TestFunctionPredicate<Kind>>} PredicateTest
+ *   Check for a node that can be inferred by TypeScript.
+ */
+
+/**
+ * Check if a node passes a certain test.
+ *
+ * @template {Node} Kind
+ *   Node type.
+ * @callback TestFunctionPredicate
+ *   Complex test function for a node that can be inferred by TypeScript.
+ * @param {Node} node
+ *   A node.
+ * @param {number | null | undefined} [index]
+ *   The node’s position in its parent.
+ * @param {Parent | null | undefined} [parent]
+ *   The node’s parent.
+ * @returns {node is Kind}
+ *   Whether this node passes the test.
+ */
+
+/**
+ * @callback AssertAnything
+ *   Check that an arbitrary value is a node, unaware of TypeScript inferral.
+ * @param {unknown} [node]
+ *   Anything (typically a node).
+ * @param {number | null | undefined} [index]
+ *   The node’s position in its parent.
+ * @param {Parent | null | undefined} [parent]
+ *   The node’s parent.
+ * @returns {boolean}
+ *   Whether this is a node and passes a test.
+ */
+
+/**
+ * Check if a node is a node and passes a certain node test.
+ *
+ * @template {Node} Kind
+ *   Node type.
+ * @callback AssertPredicate
+ *   Check that an arbitrary value is a specific node, aware of TypeScript.
+ * @param {unknown} [node]
+ *   Anything (typically a node).
+ * @param {number | null | undefined} [index]
+ *   The node’s position in its parent.
+ * @param {Parent | null | undefined} [parent]
+ *   The node’s parent.
+ * @returns {node is Kind}
+ *   Whether this is a node and passes a test.
+ */
+
+/**
+ * Check if `node` is a `Node` and whether it passes the given test.
+ *
+ * @param node
+ *   Thing to check, typically `Node`.
+ * @param test
+ *   A check for a specific node.
+ * @param index
+ *   The node’s position in its parent.
+ * @param parent
+ *   The node’s parent.
+ * @returns
+ *   Whether `node` is a node and passes a test.
+ */
+const lib_is =
+  /**
+   * @type {(
+   *   (() => false) &
+   *   (<Kind extends Node = Node>(node: unknown, test: PredicateTest<Kind>, index: number, parent: Parent, context?: unknown) => node is Kind) &
+   *   (<Kind extends Node = Node>(node: unknown, test: PredicateTest<Kind>, index?: null | undefined, parent?: null | undefined, context?: unknown) => node is Kind) &
+   *   ((node: unknown, test: Test, index: number, parent: Parent, context?: unknown) => boolean) &
+   *   ((node: unknown, test?: Test, index?: null | undefined, parent?: null | undefined, context?: unknown) => boolean)
+   * )}
+   */
+  (
+    /**
+     * @param {unknown} [node]
+     * @param {Test} [test]
+     * @param {number | null | undefined} [index]
+     * @param {Parent | null | undefined} [parent]
+     * @param {unknown} [context]
+     * @returns {boolean}
+     */
+    // eslint-disable-next-line max-params
+    function is(node, test, index, parent, context) {
+      const check = lib_convert(test)
+
+      if (
+        index !== undefined &&
+        index !== null &&
+        (typeof index !== 'number' ||
+          index < 0 ||
+          index === Number.POSITIVE_INFINITY)
+      ) {
+        throw new Error('Expected positive finite index')
+      }
+
+      if (
+        parent !== undefined &&
+        parent !== null &&
+        (!is(parent) || !parent.children)
+      ) {
+        throw new Error('Expected parent node')
+      }
+
+      if (
+        (parent === undefined || parent === null) !==
+        (index === undefined || index === null)
+      ) {
+        throw new Error('Expected both parent and index')
+      }
+
+      // @ts-expect-error Looks like a node.
+      return node && node.type && typeof node.type === 'string'
+        ? Boolean(check.call(context, node, index, parent))
+        : false
+    }
+  )
+
+/**
+ * Generate an assertion from a test.
+ *
+ * Useful if you’re going to test many nodes, for example when creating a
+ * utility where something else passes a compatible test.
+ *
+ * The created function is a bit faster because it expects valid input only:
+ * a `node`, `index`, and `parent`.
+ *
+ * @param test
+ *   *   when nullish, checks if `node` is a `Node`.
+ *   *   when `string`, works like passing `(node) => node.type === test`.
+ *   *   when `function` checks if function passed the node is true.
+ *   *   when `object`, checks that all keys in test are in node, and that they have (strictly) equal values.
+ *   *   when `array`, checks if any one of the subtests pass.
+ * @returns
+ *   An assertion.
+ */
+const lib_convert =
+  /**
+   * @type {(
+   *   (<Kind extends Node>(test: PredicateTest<Kind>) => AssertPredicate<Kind>) &
+   *   ((test?: Test) => AssertAnything)
+   * )}
+   */
+  (
+    /**
+     * @param {Test} [test]
+     * @returns {AssertAnything}
+     */
+    function (test) {
+      if (test === undefined || test === null) {
+        return lib_ok
+      }
+
+      if (typeof test === 'string') {
+        return lib_typeFactory(test)
+      }
+
+      if (typeof test === 'object') {
+        return Array.isArray(test) ? lib_anyFactory(test) : lib_propsFactory(test)
+      }
+
+      if (typeof test === 'function') {
+        return lib_castFactory(test)
+      }
+
+      throw new Error('Expected function, string, or object as test')
+    }
+  )
+
+/**
+ * @param {Array<string | Props | TestFunctionAnything>} tests
+ * @returns {AssertAnything}
+ */
+function lib_anyFactory(tests) {
+  /** @type {Array<AssertAnything>} */
+  const checks = []
+  let index = -1
+
+  while (++index < tests.length) {
+    checks[index] = lib_convert(tests[index])
+  }
+
+  return lib_castFactory(any)
+
+  /**
+   * @this {unknown}
+   * @param {Array<unknown>} parameters
+   * @returns {boolean}
+   */
+  function any(...parameters) {
+    let index = -1
+
+    while (++index < checks.length) {
+      if (checks[index].call(this, ...parameters)) return true
+    }
+
+    return false
+  }
+}
+
+/**
+ * Turn an object into a test for a node with a certain fields.
+ *
+ * @param {Props} check
+ * @returns {AssertAnything}
+ */
+function lib_propsFactory(check) {
+  return lib_castFactory(all)
+
+  /**
+   * @param {Node} node
+   * @returns {boolean}
+   */
+  function all(node) {
+    /** @type {string} */
+    let key
+
+    for (key in check) {
+      // @ts-expect-error: hush, it sure works as an index.
+      if (node[key] !== check[key]) return false
+    }
+
+    return true
+  }
+}
+
+/**
+ * Turn a string into a test for a node with a certain type.
+ *
+ * @param {string} check
+ * @returns {AssertAnything}
+ */
+function lib_typeFactory(check) {
+  return lib_castFactory(type)
+
+  /**
+   * @param {Node} node
+   */
+  function type(node) {
+    return node && node.type === check
+  }
+}
+
+/**
+ * Turn a custom test into a test for a node that passes that test.
+ *
+ * @param {TestFunctionAnything} check
+ * @returns {AssertAnything}
+ */
+function lib_castFactory(check) {
+  return assertion
+
+  /**
+   * @this {unknown}
+   * @param {unknown} node
+   * @param {Array<unknown>} parameters
+   * @returns {boolean}
+   */
+  function assertion(node, ...parameters) {
+    return Boolean(
+      node &&
+        typeof node === 'object' &&
+        'type' in node &&
+        // @ts-expect-error: fine.
+        Boolean(check.call(this, node, ...parameters))
+    )
+  }
+}
+
+function lib_ok() {
+  return true
+}
+
 ;// CONCATENATED MODULE: ./node_modules/mdast-util-phrasing/lib/index.js
 /**
  * @typedef {import('mdast').PhrasingContent} PhrasingContent
@@ -22463,7 +24935,7 @@ var unist_util_is_lib = __nccwpck_require__(9607);
  *   Whether `value` is phrasing content.
  */
 const phrasing = /** @type {AssertPredicatePhrasing} */ (
-  (0,unist_util_is_lib/* convert */.O)([
+  lib_convert([
     'break',
     'delete',
     'emphasis',
@@ -23626,2502 +26098,6 @@ function remarkStringify(options) {
 
 /***/ }),
 
-/***/ 4601:
-/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
-
-"use strict";
-// ESM COMPAT FLAG
-__nccwpck_require__.r(__webpack_exports__);
-
-// EXPORTS
-__nccwpck_require__.d(__webpack_exports__, {
-  "unified": () => (/* reexport */ unified)
-});
-
-;// CONCATENATED MODULE: ./node_modules/bail/index.js
-/**
- * Throw a given error.
- *
- * @param {Error|null|undefined} [error]
- *   Maybe error.
- * @returns {asserts error is null|undefined}
- */
-function bail(error) {
-  if (error) {
-    throw error
-  }
-}
-
-// EXTERNAL MODULE: ./node_modules/is-buffer/index.js
-var is_buffer = __nccwpck_require__(5625);
-// EXTERNAL MODULE: ./node_modules/extend/index.js
-var extend = __nccwpck_require__(8171);
-;// CONCATENATED MODULE: ./node_modules/is-plain-obj/index.js
-function isPlainObject(value) {
-	if (typeof value !== 'object' || value === null) {
-		return false;
-	}
-
-	const prototype = Object.getPrototypeOf(value);
-	return (prototype === null || prototype === Object.prototype || Object.getPrototypeOf(prototype) === null) && !(Symbol.toStringTag in value) && !(Symbol.iterator in value);
-}
-
-;// CONCATENATED MODULE: ./node_modules/trough/index.js
-/**
- * @typedef {(error?: Error|null|undefined, ...output: Array<any>) => void} Callback
- * @typedef {(...input: Array<any>) => any} Middleware
- *
- * @typedef {(...input: Array<any>) => void} Run
- *   Call all middleware.
- * @typedef {(fn: Middleware) => Pipeline} Use
- *   Add `fn` (middleware) to the list.
- * @typedef {{run: Run, use: Use}} Pipeline
- *   Middleware.
- */
-
-/**
- * Create new middleware.
- *
- * @returns {Pipeline}
- */
-function trough() {
-  /** @type {Array<Middleware>} */
-  const fns = []
-  /** @type {Pipeline} */
-  const pipeline = {run, use}
-
-  return pipeline
-
-  /** @type {Run} */
-  function run(...values) {
-    let middlewareIndex = -1
-    /** @type {Callback} */
-    const callback = values.pop()
-
-    if (typeof callback !== 'function') {
-      throw new TypeError('Expected function as last argument, not ' + callback)
-    }
-
-    next(null, ...values)
-
-    /**
-     * Run the next `fn`, or we’re done.
-     *
-     * @param {Error|null|undefined} error
-     * @param {Array<any>} output
-     */
-    function next(error, ...output) {
-      const fn = fns[++middlewareIndex]
-      let index = -1
-
-      if (error) {
-        callback(error)
-        return
-      }
-
-      // Copy non-nullish input into values.
-      while (++index < values.length) {
-        if (output[index] === null || output[index] === undefined) {
-          output[index] = values[index]
-        }
-      }
-
-      // Save the newly created `output` for the next call.
-      values = output
-
-      // Next or done.
-      if (fn) {
-        wrap(fn, next)(...output)
-      } else {
-        callback(null, ...output)
-      }
-    }
-  }
-
-  /** @type {Use} */
-  function use(middelware) {
-    if (typeof middelware !== 'function') {
-      throw new TypeError(
-        'Expected `middelware` to be a function, not ' + middelware
-      )
-    }
-
-    fns.push(middelware)
-    return pipeline
-  }
-}
-
-/**
- * Wrap `middleware`.
- * Can be sync or async; return a promise, receive a callback, or return new
- * values and errors.
- *
- * @param {Middleware} middleware
- * @param {Callback} callback
- */
-function wrap(middleware, callback) {
-  /** @type {boolean} */
-  let called
-
-  return wrapped
-
-  /**
-   * Call `middleware`.
-   * @this {any}
-   * @param {Array<any>} parameters
-   * @returns {void}
-   */
-  function wrapped(...parameters) {
-    const fnExpectsCallback = middleware.length > parameters.length
-    /** @type {any} */
-    let result
-
-    if (fnExpectsCallback) {
-      parameters.push(done)
-    }
-
-    try {
-      result = middleware.apply(this, parameters)
-    } catch (error) {
-      const exception = /** @type {Error} */ (error)
-
-      // Well, this is quite the pickle.
-      // `middleware` received a callback and called it synchronously, but that
-      // threw an error.
-      // The only thing left to do is to throw the thing instead.
-      if (fnExpectsCallback && called) {
-        throw exception
-      }
-
-      return done(exception)
-    }
-
-    if (!fnExpectsCallback) {
-      if (result instanceof Promise) {
-        result.then(then, done)
-      } else if (result instanceof Error) {
-        done(result)
-      } else {
-        then(result)
-      }
-    }
-  }
-
-  /**
-   * Call `callback`, only once.
-   * @type {Callback}
-   */
-  function done(error, ...output) {
-    if (!called) {
-      called = true
-      callback(error, ...output)
-    }
-  }
-
-  /**
-   * Call `done` with one value.
-   *
-   * @param {any} [value]
-   */
-  function then(value) {
-    done(null, value)
-  }
-}
-
-// EXTERNAL MODULE: ./node_modules/unist-util-stringify-position/lib/index.js
-var lib = __nccwpck_require__(7924);
-;// CONCATENATED MODULE: ./node_modules/vfile-message/lib/index.js
-/**
- * @typedef {import('unist').Node} Node
- * @typedef {import('unist').Position} Position
- * @typedef {import('unist').Point} Point
- * @typedef {object & {type: string, position?: Position | undefined}} NodeLike
- */
-
-
-
-/**
- * Message.
- */
-class VFileMessage extends Error {
-  /**
-   * Create a message for `reason` at `place` from `origin`.
-   *
-   * When an error is passed in as `reason`, the `stack` is copied.
-   *
-   * @param {string | Error | VFileMessage} reason
-   *   Reason for message, uses the stack and message of the error if given.
-   *
-   *   > 👉 **Note**: you should use markdown.
-   * @param {Node | NodeLike | Position | Point | null | undefined} [place]
-   *   Place in file where the message occurred.
-   * @param {string | null | undefined} [origin]
-   *   Place in code where the message originates (example:
-   *   `'my-package:my-rule'` or `'my-rule'`).
-   * @returns
-   *   Instance of `VFileMessage`.
-   */
-  // To do: next major: expose `undefined` everywhere instead of `null`.
-  constructor(reason, place, origin) {
-    /** @type {[string | null, string | null]} */
-    const parts = [null, null]
-    /** @type {Position} */
-    let position = {
-      // @ts-expect-error: we always follows the structure of `position`.
-      start: {line: null, column: null},
-      // @ts-expect-error: "
-      end: {line: null, column: null}
-    }
-
-    super()
-
-    if (typeof place === 'string') {
-      origin = place
-      place = undefined
-    }
-
-    if (typeof origin === 'string') {
-      const index = origin.indexOf(':')
-
-      if (index === -1) {
-        parts[1] = origin
-      } else {
-        parts[0] = origin.slice(0, index)
-        parts[1] = origin.slice(index + 1)
-      }
-    }
-
-    if (place) {
-      // Node.
-      if ('type' in place || 'position' in place) {
-        if (place.position) {
-          // To do: next major: deep clone.
-          // @ts-expect-error: looks like a position.
-          position = place.position
-        }
-      }
-      // Position.
-      else if ('start' in place || 'end' in place) {
-        // @ts-expect-error: looks like a position.
-        // To do: next major: deep clone.
-        position = place
-      }
-      // Point.
-      else if ('line' in place || 'column' in place) {
-        // To do: next major: deep clone.
-        position.start = place
-      }
-    }
-
-    // Fields from `Error`.
-    /**
-     * Serialized positional info of error.
-     *
-     * On normal errors, this would be something like `ParseError`, buit in
-     * `VFile` messages we use this space to show where an error happened.
-     */
-    this.name = (0,lib/* stringifyPosition */.y)(place) || '1:1'
-
-    /**
-     * Reason for message.
-     *
-     * @type {string}
-     */
-    this.message = typeof reason === 'object' ? reason.message : reason
-
-    /**
-     * Stack of message.
-     *
-     * This is used by normal errors to show where something happened in
-     * programming code, irrelevant for `VFile` messages,
-     *
-     * @type {string}
-     */
-    this.stack = ''
-
-    if (typeof reason === 'object' && reason.stack) {
-      this.stack = reason.stack
-    }
-
-    /**
-     * Reason for message.
-     *
-     * > 👉 **Note**: you should use markdown.
-     *
-     * @type {string}
-     */
-    this.reason = this.message
-
-    /* eslint-disable no-unused-expressions */
-    /**
-     * State of problem.
-     *
-     * * `true` — marks associated file as no longer processable (error)
-     * * `false` — necessitates a (potential) change (warning)
-     * * `null | undefined` — for things that might not need changing (info)
-     *
-     * @type {boolean | null | undefined}
-     */
-    this.fatal
-
-    /**
-     * Starting line of error.
-     *
-     * @type {number | null}
-     */
-    this.line = position.start.line
-
-    /**
-     * Starting column of error.
-     *
-     * @type {number | null}
-     */
-    this.column = position.start.column
-
-    /**
-     * Full unist position.
-     *
-     * @type {Position | null}
-     */
-    this.position = position
-
-    /**
-     * Namespace of message (example: `'my-package'`).
-     *
-     * @type {string | null}
-     */
-    this.source = parts[0]
-
-    /**
-     * Category of message (example: `'my-rule'`).
-     *
-     * @type {string | null}
-     */
-    this.ruleId = parts[1]
-
-    /**
-     * Path of a file (used throughout the `VFile` ecosystem).
-     *
-     * @type {string | null}
-     */
-    this.file
-
-    // The following fields are “well known”.
-    // Not standard.
-    // Feel free to add other non-standard fields to your messages.
-
-    /**
-     * Specify the source value that’s being reported, which is deemed
-     * incorrect.
-     *
-     * @type {string | null}
-     */
-    this.actual
-
-    /**
-     * Suggest acceptable values that can be used instead of `actual`.
-     *
-     * @type {Array<string> | null}
-     */
-    this.expected
-
-    /**
-     * Link to docs for the message.
-     *
-     * > 👉 **Note**: this must be an absolute URL that can be passed as `x`
-     * > to `new URL(x)`.
-     *
-     * @type {string | null}
-     */
-    this.url
-
-    /**
-     * Long form description of the message (you should use markdown).
-     *
-     * @type {string | null}
-     */
-    this.note
-    /* eslint-enable no-unused-expressions */
-  }
-}
-
-VFileMessage.prototype.file = ''
-VFileMessage.prototype.name = ''
-VFileMessage.prototype.reason = ''
-VFileMessage.prototype.message = ''
-VFileMessage.prototype.stack = ''
-VFileMessage.prototype.fatal = null
-VFileMessage.prototype.column = null
-VFileMessage.prototype.line = null
-VFileMessage.prototype.source = null
-VFileMessage.prototype.ruleId = null
-VFileMessage.prototype.position = null
-
-// EXTERNAL MODULE: external "path"
-var external_path_ = __nccwpck_require__(1017);
-;// CONCATENATED MODULE: external "process"
-const external_process_namespaceObject = require("process");
-;// CONCATENATED MODULE: ./node_modules/vfile/lib/minurl.shared.js
-/**
- * @typedef URL
- * @property {string} hash
- * @property {string} host
- * @property {string} hostname
- * @property {string} href
- * @property {string} origin
- * @property {string} password
- * @property {string} pathname
- * @property {string} port
- * @property {string} protocol
- * @property {string} search
- * @property {any} searchParams
- * @property {string} username
- * @property {() => string} toString
- * @property {() => string} toJSON
- */
-
-/**
- * Check if `fileUrlOrPath` looks like a URL.
- *
- * @param {unknown} fileUrlOrPath
- *   File path or URL.
- * @returns {fileUrlOrPath is URL}
- *   Whether it’s a URL.
- */
-// From: <https://github.com/nodejs/node/blob/fcf8ba4/lib/internal/url.js#L1501>
-function isUrl(fileUrlOrPath) {
-  return (
-    fileUrlOrPath !== null &&
-    typeof fileUrlOrPath === 'object' &&
-    // @ts-expect-error: indexable.
-    fileUrlOrPath.href &&
-    // @ts-expect-error: indexable.
-    fileUrlOrPath.origin
-  )
-}
-
-// EXTERNAL MODULE: external "url"
-var external_url_ = __nccwpck_require__(7310);
-;// CONCATENATED MODULE: ./node_modules/vfile/lib/index.js
-/**
- * @typedef {import('unist').Node} Node
- * @typedef {import('unist').Position} Position
- * @typedef {import('unist').Point} Point
- * @typedef {import('./minurl.shared.js').URL} URL
- * @typedef {import('../index.js').Data} Data
- * @typedef {import('../index.js').Value} Value
- */
-
-/**
- * @typedef {Record<string, unknown> & {type: string, position?: Position | undefined}} NodeLike
- *
- * @typedef {'ascii' | 'utf8' | 'utf-8' | 'utf16le' | 'ucs2' | 'ucs-2' | 'base64' | 'base64url' | 'latin1' | 'binary' | 'hex'} BufferEncoding
- *   Encodings supported by the buffer class.
- *
- *   This is a copy of the types from Node, copied to prevent Node globals from
- *   being needed.
- *   Copied from: <https://github.com/DefinitelyTyped/DefinitelyTyped/blob/90a4ec8/types/node/buffer.d.ts#L170>
- *
- * @typedef {Options | URL | Value | VFile} Compatible
- *   Things that can be passed to the constructor.
- *
- * @typedef VFileCoreOptions
- *   Set multiple values.
- * @property {Value | null | undefined} [value]
- *   Set `value`.
- * @property {string | null | undefined} [cwd]
- *   Set `cwd`.
- * @property {Array<string> | null | undefined} [history]
- *   Set `history`.
- * @property {URL | string | null | undefined} [path]
- *   Set `path`.
- * @property {string | null | undefined} [basename]
- *   Set `basename`.
- * @property {string | null | undefined} [stem]
- *   Set `stem`.
- * @property {string | null | undefined} [extname]
- *   Set `extname`.
- * @property {string | null | undefined} [dirname]
- *   Set `dirname`.
- * @property {Data | null | undefined} [data]
- *   Set `data`.
- *
- * @typedef Map
- *   Raw source map.
- *
- *   See:
- *   <https://github.com/mozilla/source-map/blob/58819f0/source-map.d.ts#L15-L23>.
- * @property {number} version
- *   Which version of the source map spec this map is following.
- * @property {Array<string>} sources
- *   An array of URLs to the original source files.
- * @property {Array<string>} names
- *   An array of identifiers which can be referenced by individual mappings.
- * @property {string | undefined} [sourceRoot]
- *   The URL root from which all sources are relative.
- * @property {Array<string> | undefined} [sourcesContent]
- *   An array of contents of the original source files.
- * @property {string} mappings
- *   A string of base64 VLQs which contain the actual mappings.
- * @property {string} file
- *   The generated file this source map is associated with.
- *
- * @typedef {{[key: string]: unknown} & VFileCoreOptions} Options
- *   Configuration.
- *
- *   A bunch of keys that will be shallow copied over to the new file.
- *
- * @typedef {Record<string, unknown>} ReporterSettings
- *   Configuration for reporters.
- */
-
-/**
- * @template {ReporterSettings} Settings
- *   Options type.
- * @callback Reporter
- *   Type for a reporter.
- * @param {Array<VFile>} files
- *   Files to report.
- * @param {Settings} options
- *   Configuration.
- * @returns {string}
- *   Report.
- */
-
-
-
-
-
-
-
-/**
- * Order of setting (least specific to most), we need this because otherwise
- * `{stem: 'a', path: '~/b.js'}` would throw, as a path is needed before a
- * stem can be set.
- *
- * @type {Array<'basename' | 'dirname' | 'extname' | 'history' | 'path' | 'stem'>}
- */
-const order = ['history', 'path', 'basename', 'stem', 'extname', 'dirname']
-
-class VFile {
-  /**
-   * Create a new virtual file.
-   *
-   * `options` is treated as:
-   *
-   * *   `string` or `Buffer` — `{value: options}`
-   * *   `URL` — `{path: options}`
-   * *   `VFile` — shallow copies its data over to the new file
-   * *   `object` — all fields are shallow copied over to the new file
-   *
-   * Path related fields are set in the following order (least specific to
-   * most specific): `history`, `path`, `basename`, `stem`, `extname`,
-   * `dirname`.
-   *
-   * You cannot set `dirname` or `extname` without setting either `history`,
-   * `path`, `basename`, or `stem` too.
-   *
-   * @param {Compatible | null | undefined} [value]
-   *   File value.
-   * @returns
-   *   New instance.
-   */
-  constructor(value) {
-    /** @type {Options | VFile} */
-    let options
-
-    if (!value) {
-      options = {}
-    } else if (typeof value === 'string' || buffer(value)) {
-      options = {value}
-    } else if (isUrl(value)) {
-      options = {path: value}
-    } else {
-      options = value
-    }
-
-    /**
-     * Place to store custom information (default: `{}`).
-     *
-     * It’s OK to store custom data directly on the file but moving it to
-     * `data` is recommended.
-     *
-     * @type {Data}
-     */
-    this.data = {}
-
-    /**
-     * List of messages associated with the file.
-     *
-     * @type {Array<VFileMessage>}
-     */
-    this.messages = []
-
-    /**
-     * List of filepaths the file moved between.
-     *
-     * The first is the original path and the last is the current path.
-     *
-     * @type {Array<string>}
-     */
-    this.history = []
-
-    /**
-     * Base of `path` (default: `process.cwd()` or `'/'` in browsers).
-     *
-     * @type {string}
-     */
-    this.cwd = external_process_namespaceObject.cwd()
-
-    /* eslint-disable no-unused-expressions */
-    /**
-     * Raw value.
-     *
-     * @type {Value}
-     */
-    this.value
-
-    // The below are non-standard, they are “well-known”.
-    // As in, used in several tools.
-
-    /**
-     * Whether a file was saved to disk.
-     *
-     * This is used by vfile reporters.
-     *
-     * @type {boolean}
-     */
-    this.stored
-
-    /**
-     * Custom, non-string, compiled, representation.
-     *
-     * This is used by unified to store non-string results.
-     * One example is when turning markdown into React nodes.
-     *
-     * @type {unknown}
-     */
-    this.result
-
-    /**
-     * Source map.
-     *
-     * This type is equivalent to the `RawSourceMap` type from the `source-map`
-     * module.
-     *
-     * @type {Map | null | undefined}
-     */
-    this.map
-    /* eslint-enable no-unused-expressions */
-
-    // Set path related properties in the correct order.
-    let index = -1
-
-    while (++index < order.length) {
-      const prop = order[index]
-
-      // Note: we specifically use `in` instead of `hasOwnProperty` to accept
-      // `vfile`s too.
-      if (
-        prop in options &&
-        options[prop] !== undefined &&
-        options[prop] !== null
-      ) {
-        // @ts-expect-error: TS doesn’t understand basic reality.
-        this[prop] = prop === 'history' ? [...options[prop]] : options[prop]
-      }
-    }
-
-    /** @type {string} */
-    let prop
-
-    // Set non-path related properties.
-    for (prop in options) {
-      // @ts-expect-error: fine to set other things.
-      if (!order.includes(prop)) {
-        // @ts-expect-error: fine to set other things.
-        this[prop] = options[prop]
-      }
-    }
-  }
-
-  /**
-   * Get the full path (example: `'~/index.min.js'`).
-   *
-   * @returns {string}
-   */
-  get path() {
-    return this.history[this.history.length - 1]
-  }
-
-  /**
-   * Set the full path (example: `'~/index.min.js'`).
-   *
-   * Cannot be nullified.
-   * You can set a file URL (a `URL` object with a `file:` protocol) which will
-   * be turned into a path with `url.fileURLToPath`.
-   *
-   * @param {string | URL} path
-   */
-  set path(path) {
-    if (isUrl(path)) {
-      path = (0,external_url_.fileURLToPath)(path)
-    }
-
-    assertNonEmpty(path, 'path')
-
-    if (this.path !== path) {
-      this.history.push(path)
-    }
-  }
-
-  /**
-   * Get the parent path (example: `'~'`).
-   */
-  get dirname() {
-    return typeof this.path === 'string' ? external_path_.dirname(this.path) : undefined
-  }
-
-  /**
-   * Set the parent path (example: `'~'`).
-   *
-   * Cannot be set if there’s no `path` yet.
-   */
-  set dirname(dirname) {
-    assertPath(this.basename, 'dirname')
-    this.path = external_path_.join(dirname || '', this.basename)
-  }
-
-  /**
-   * Get the basename (including extname) (example: `'index.min.js'`).
-   */
-  get basename() {
-    return typeof this.path === 'string' ? external_path_.basename(this.path) : undefined
-  }
-
-  /**
-   * Set basename (including extname) (`'index.min.js'`).
-   *
-   * Cannot contain path separators (`'/'` on unix, macOS, and browsers, `'\'`
-   * on windows).
-   * Cannot be nullified (use `file.path = file.dirname` instead).
-   */
-  set basename(basename) {
-    assertNonEmpty(basename, 'basename')
-    assertPart(basename, 'basename')
-    this.path = external_path_.join(this.dirname || '', basename)
-  }
-
-  /**
-   * Get the extname (including dot) (example: `'.js'`).
-   */
-  get extname() {
-    return typeof this.path === 'string' ? external_path_.extname(this.path) : undefined
-  }
-
-  /**
-   * Set the extname (including dot) (example: `'.js'`).
-   *
-   * Cannot contain path separators (`'/'` on unix, macOS, and browsers, `'\'`
-   * on windows).
-   * Cannot be set if there’s no `path` yet.
-   */
-  set extname(extname) {
-    assertPart(extname, 'extname')
-    assertPath(this.dirname, 'extname')
-
-    if (extname) {
-      if (extname.charCodeAt(0) !== 46 /* `.` */) {
-        throw new Error('`extname` must start with `.`')
-      }
-
-      if (extname.includes('.', 1)) {
-        throw new Error('`extname` cannot contain multiple dots')
-      }
-    }
-
-    this.path = external_path_.join(this.dirname, this.stem + (extname || ''))
-  }
-
-  /**
-   * Get the stem (basename w/o extname) (example: `'index.min'`).
-   */
-  get stem() {
-    return typeof this.path === 'string'
-      ? external_path_.basename(this.path, this.extname)
-      : undefined
-  }
-
-  /**
-   * Set the stem (basename w/o extname) (example: `'index.min'`).
-   *
-   * Cannot contain path separators (`'/'` on unix, macOS, and browsers, `'\'`
-   * on windows).
-   * Cannot be nullified (use `file.path = file.dirname` instead).
-   */
-  set stem(stem) {
-    assertNonEmpty(stem, 'stem')
-    assertPart(stem, 'stem')
-    this.path = external_path_.join(this.dirname || '', stem + (this.extname || ''))
-  }
-
-  /**
-   * Serialize the file.
-   *
-   * @param {BufferEncoding | null | undefined} [encoding='utf8']
-   *   Character encoding to understand `value` as when it’s a `Buffer`
-   *   (default: `'utf8'`).
-   * @returns {string}
-   *   Serialized file.
-   */
-  toString(encoding) {
-    return (this.value || '').toString(encoding || undefined)
-  }
-
-  /**
-   * Create a warning message associated with the file.
-   *
-   * Its `fatal` is set to `false` and `file` is set to the current file path.
-   * Its added to `file.messages`.
-   *
-   * @param {string | Error | VFileMessage} reason
-   *   Reason for message, uses the stack and message of the error if given.
-   * @param {Node | NodeLike | Position | Point | null | undefined} [place]
-   *   Place in file where the message occurred.
-   * @param {string | null | undefined} [origin]
-   *   Place in code where the message originates (example:
-   *   `'my-package:my-rule'` or `'my-rule'`).
-   * @returns {VFileMessage}
-   *   Message.
-   */
-  message(reason, place, origin) {
-    const message = new VFileMessage(reason, place, origin)
-
-    if (this.path) {
-      message.name = this.path + ':' + message.name
-      message.file = this.path
-    }
-
-    message.fatal = false
-
-    this.messages.push(message)
-
-    return message
-  }
-
-  /**
-   * Create an info message associated with the file.
-   *
-   * Its `fatal` is set to `null` and `file` is set to the current file path.
-   * Its added to `file.messages`.
-   *
-   * @param {string | Error | VFileMessage} reason
-   *   Reason for message, uses the stack and message of the error if given.
-   * @param {Node | NodeLike | Position | Point | null | undefined} [place]
-   *   Place in file where the message occurred.
-   * @param {string | null | undefined} [origin]
-   *   Place in code where the message originates (example:
-   *   `'my-package:my-rule'` or `'my-rule'`).
-   * @returns {VFileMessage}
-   *   Message.
-   */
-  info(reason, place, origin) {
-    const message = this.message(reason, place, origin)
-
-    message.fatal = null
-
-    return message
-  }
-
-  /**
-   * Create a fatal error associated with the file.
-   *
-   * Its `fatal` is set to `true` and `file` is set to the current file path.
-   * Its added to `file.messages`.
-   *
-   * > 👉 **Note**: a fatal error means that a file is no longer processable.
-   *
-   * @param {string | Error | VFileMessage} reason
-   *   Reason for message, uses the stack and message of the error if given.
-   * @param {Node | NodeLike | Position | Point | null | undefined} [place]
-   *   Place in file where the message occurred.
-   * @param {string | null | undefined} [origin]
-   *   Place in code where the message originates (example:
-   *   `'my-package:my-rule'` or `'my-rule'`).
-   * @returns {never}
-   *   Message.
-   * @throws {VFileMessage}
-   *   Message.
-   */
-  fail(reason, place, origin) {
-    const message = this.message(reason, place, origin)
-
-    message.fatal = true
-
-    throw message
-  }
-}
-
-/**
- * Assert that `part` is not a path (as in, does not contain `path.sep`).
- *
- * @param {string | null | undefined} part
- *   File path part.
- * @param {string} name
- *   Part name.
- * @returns {void}
- *   Nothing.
- */
-function assertPart(part, name) {
-  if (part && part.includes(external_path_.sep)) {
-    throw new Error(
-      '`' + name + '` cannot be a path: did not expect `' + external_path_.sep + '`'
-    )
-  }
-}
-
-/**
- * Assert that `part` is not empty.
- *
- * @param {string | undefined} part
- *   Thing.
- * @param {string} name
- *   Part name.
- * @returns {asserts part is string}
- *   Nothing.
- */
-function assertNonEmpty(part, name) {
-  if (!part) {
-    throw new Error('`' + name + '` cannot be empty')
-  }
-}
-
-/**
- * Assert `path` exists.
- *
- * @param {string | undefined} path
- *   Path.
- * @param {string} name
- *   Dependency name.
- * @returns {asserts path is string}
- *   Nothing.
- */
-function assertPath(path, name) {
-  if (!path) {
-    throw new Error('Setting `' + name + '` requires `path` to be set too')
-  }
-}
-
-/**
- * Assert `value` is a buffer.
- *
- * @param {unknown} value
- *   thing.
- * @returns {value is Buffer}
- *   Whether `value` is a Node.js buffer.
- */
-function buffer(value) {
-  return is_buffer(value)
-}
-
-;// CONCATENATED MODULE: ./node_modules/unified/lib/index.js
-/**
- * @typedef {import('unist').Node} Node
- * @typedef {import('vfile').VFileCompatible} VFileCompatible
- * @typedef {import('vfile').VFileValue} VFileValue
- * @typedef {import('..').Processor} Processor
- * @typedef {import('..').Plugin} Plugin
- * @typedef {import('..').Preset} Preset
- * @typedef {import('..').Pluggable} Pluggable
- * @typedef {import('..').PluggableList} PluggableList
- * @typedef {import('..').Transformer} Transformer
- * @typedef {import('..').Parser} Parser
- * @typedef {import('..').Compiler} Compiler
- * @typedef {import('..').RunCallback} RunCallback
- * @typedef {import('..').ProcessCallback} ProcessCallback
- *
- * @typedef Context
- * @property {Node} tree
- * @property {VFile} file
- */
-
-
-
-
-
-
-
-
-// Expose a frozen processor.
-const unified = base().freeze()
-
-const own = {}.hasOwnProperty
-
-// Function to create the first processor.
-/**
- * @returns {Processor}
- */
-function base() {
-  const transformers = trough()
-  /** @type {Processor['attachers']} */
-  const attachers = []
-  /** @type {Record<string, unknown>} */
-  let namespace = {}
-  /** @type {boolean|undefined} */
-  let frozen
-  let freezeIndex = -1
-
-  // Data management.
-  // @ts-expect-error: overloads are handled.
-  processor.data = data
-  processor.Parser = undefined
-  processor.Compiler = undefined
-
-  // Lock.
-  processor.freeze = freeze
-
-  // Plugins.
-  processor.attachers = attachers
-  // @ts-expect-error: overloads are handled.
-  processor.use = use
-
-  // API.
-  processor.parse = parse
-  processor.stringify = stringify
-  // @ts-expect-error: overloads are handled.
-  processor.run = run
-  processor.runSync = runSync
-  // @ts-expect-error: overloads are handled.
-  processor.process = process
-  processor.processSync = processSync
-
-  // Expose.
-  return processor
-
-  // Create a new processor based on the processor in the current scope.
-  /** @type {Processor} */
-  function processor() {
-    const destination = base()
-    let index = -1
-
-    while (++index < attachers.length) {
-      destination.use(...attachers[index])
-    }
-
-    destination.data(extend(true, {}, namespace))
-
-    return destination
-  }
-
-  /**
-   * @param {string|Record<string, unknown>} [key]
-   * @param {unknown} [value]
-   * @returns {unknown}
-   */
-  function data(key, value) {
-    if (typeof key === 'string') {
-      // Set `key`.
-      if (arguments.length === 2) {
-        assertUnfrozen('data', frozen)
-        namespace[key] = value
-        return processor
-      }
-
-      // Get `key`.
-      return (own.call(namespace, key) && namespace[key]) || null
-    }
-
-    // Set space.
-    if (key) {
-      assertUnfrozen('data', frozen)
-      namespace = key
-      return processor
-    }
-
-    // Get space.
-    return namespace
-  }
-
-  /** @type {Processor['freeze']} */
-  function freeze() {
-    if (frozen) {
-      return processor
-    }
-
-    while (++freezeIndex < attachers.length) {
-      const [attacher, ...options] = attachers[freezeIndex]
-
-      if (options[0] === false) {
-        continue
-      }
-
-      if (options[0] === true) {
-        options[0] = undefined
-      }
-
-      /** @type {Transformer|void} */
-      const transformer = attacher.call(processor, ...options)
-
-      if (typeof transformer === 'function') {
-        transformers.use(transformer)
-      }
-    }
-
-    frozen = true
-    freezeIndex = Number.POSITIVE_INFINITY
-
-    return processor
-  }
-
-  /**
-   * @param {Pluggable|null|undefined} [value]
-   * @param {...unknown} options
-   * @returns {Processor}
-   */
-  function use(value, ...options) {
-    /** @type {Record<string, unknown>|undefined} */
-    let settings
-
-    assertUnfrozen('use', frozen)
-
-    if (value === null || value === undefined) {
-      // Empty.
-    } else if (typeof value === 'function') {
-      addPlugin(value, ...options)
-    } else if (typeof value === 'object') {
-      if (Array.isArray(value)) {
-        addList(value)
-      } else {
-        addPreset(value)
-      }
-    } else {
-      throw new TypeError('Expected usable value, not `' + value + '`')
-    }
-
-    if (settings) {
-      namespace.settings = Object.assign(namespace.settings || {}, settings)
-    }
-
-    return processor
-
-    /**
-     * @param {import('..').Pluggable<unknown[]>} value
-     * @returns {void}
-     */
-    function add(value) {
-      if (typeof value === 'function') {
-        addPlugin(value)
-      } else if (typeof value === 'object') {
-        if (Array.isArray(value)) {
-          const [plugin, ...options] = value
-          addPlugin(plugin, ...options)
-        } else {
-          addPreset(value)
-        }
-      } else {
-        throw new TypeError('Expected usable value, not `' + value + '`')
-      }
-    }
-
-    /**
-     * @param {Preset} result
-     * @returns {void}
-     */
-    function addPreset(result) {
-      addList(result.plugins)
-
-      if (result.settings) {
-        settings = Object.assign(settings || {}, result.settings)
-      }
-    }
-
-    /**
-     * @param {PluggableList|null|undefined} [plugins]
-     * @returns {void}
-     */
-    function addList(plugins) {
-      let index = -1
-
-      if (plugins === null || plugins === undefined) {
-        // Empty.
-      } else if (Array.isArray(plugins)) {
-        while (++index < plugins.length) {
-          const thing = plugins[index]
-          add(thing)
-        }
-      } else {
-        throw new TypeError('Expected a list of plugins, not `' + plugins + '`')
-      }
-    }
-
-    /**
-     * @param {Plugin} plugin
-     * @param {...unknown} [value]
-     * @returns {void}
-     */
-    function addPlugin(plugin, value) {
-      let index = -1
-      /** @type {Processor['attachers'][number]|undefined} */
-      let entry
-
-      while (++index < attachers.length) {
-        if (attachers[index][0] === plugin) {
-          entry = attachers[index]
-          break
-        }
-      }
-
-      if (entry) {
-        if (isPlainObject(entry[1]) && isPlainObject(value)) {
-          value = extend(true, entry[1], value)
-        }
-
-        entry[1] = value
-      } else {
-        // @ts-expect-error: fine.
-        attachers.push([...arguments])
-      }
-    }
-  }
-
-  /** @type {Processor['parse']} */
-  function parse(doc) {
-    processor.freeze()
-    const file = vfile(doc)
-    const Parser = processor.Parser
-    assertParser('parse', Parser)
-
-    if (newable(Parser, 'parse')) {
-      // @ts-expect-error: `newable` checks this.
-      return new Parser(String(file), file).parse()
-    }
-
-    // @ts-expect-error: `newable` checks this.
-    return Parser(String(file), file) // eslint-disable-line new-cap
-  }
-
-  /** @type {Processor['stringify']} */
-  function stringify(node, doc) {
-    processor.freeze()
-    const file = vfile(doc)
-    const Compiler = processor.Compiler
-    assertCompiler('stringify', Compiler)
-    assertNode(node)
-
-    if (newable(Compiler, 'compile')) {
-      // @ts-expect-error: `newable` checks this.
-      return new Compiler(node, file).compile()
-    }
-
-    // @ts-expect-error: `newable` checks this.
-    return Compiler(node, file) // eslint-disable-line new-cap
-  }
-
-  /**
-   * @param {Node} node
-   * @param {VFileCompatible|RunCallback} [doc]
-   * @param {RunCallback} [callback]
-   * @returns {Promise<Node>|void}
-   */
-  function run(node, doc, callback) {
-    assertNode(node)
-    processor.freeze()
-
-    if (!callback && typeof doc === 'function') {
-      callback = doc
-      doc = undefined
-    }
-
-    if (!callback) {
-      return new Promise(executor)
-    }
-
-    executor(null, callback)
-
-    /**
-     * @param {null|((node: Node) => void)} resolve
-     * @param {(error: Error) => void} reject
-     * @returns {void}
-     */
-    function executor(resolve, reject) {
-      // @ts-expect-error: `doc` can’t be a callback anymore, we checked.
-      transformers.run(node, vfile(doc), done)
-
-      /**
-       * @param {Error|null} error
-       * @param {Node} tree
-       * @param {VFile} file
-       * @returns {void}
-       */
-      function done(error, tree, file) {
-        tree = tree || node
-        if (error) {
-          reject(error)
-        } else if (resolve) {
-          resolve(tree)
-        } else {
-          // @ts-expect-error: `callback` is defined if `resolve` is not.
-          callback(null, tree, file)
-        }
-      }
-    }
-  }
-
-  /** @type {Processor['runSync']} */
-  function runSync(node, file) {
-    /** @type {Node|undefined} */
-    let result
-    /** @type {boolean|undefined} */
-    let complete
-
-    processor.run(node, file, done)
-
-    assertDone('runSync', 'run', complete)
-
-    // @ts-expect-error: we either bailed on an error or have a tree.
-    return result
-
-    /**
-     * @param {Error|null} [error]
-     * @param {Node} [tree]
-     * @returns {void}
-     */
-    function done(error, tree) {
-      bail(error)
-      result = tree
-      complete = true
-    }
-  }
-
-  /**
-   * @param {VFileCompatible} doc
-   * @param {ProcessCallback} [callback]
-   * @returns {Promise<VFile>|undefined}
-   */
-  function process(doc, callback) {
-    processor.freeze()
-    assertParser('process', processor.Parser)
-    assertCompiler('process', processor.Compiler)
-
-    if (!callback) {
-      return new Promise(executor)
-    }
-
-    executor(null, callback)
-
-    /**
-     * @param {null|((file: VFile) => void)} resolve
-     * @param {(error?: Error|null|undefined) => void} reject
-     * @returns {void}
-     */
-    function executor(resolve, reject) {
-      const file = vfile(doc)
-
-      processor.run(processor.parse(file), file, (error, tree, file) => {
-        if (error || !tree || !file) {
-          done(error)
-        } else {
-          /** @type {unknown} */
-          const result = processor.stringify(tree, file)
-
-          if (result === undefined || result === null) {
-            // Empty.
-          } else if (looksLikeAVFileValue(result)) {
-            file.value = result
-          } else {
-            file.result = result
-          }
-
-          done(error, file)
-        }
-      })
-
-      /**
-       * @param {Error|null|undefined} [error]
-       * @param {VFile|undefined} [file]
-       * @returns {void}
-       */
-      function done(error, file) {
-        if (error || !file) {
-          reject(error)
-        } else if (resolve) {
-          resolve(file)
-        } else {
-          // @ts-expect-error: `callback` is defined if `resolve` is not.
-          callback(null, file)
-        }
-      }
-    }
-  }
-
-  /** @type {Processor['processSync']} */
-  function processSync(doc) {
-    /** @type {boolean|undefined} */
-    let complete
-
-    processor.freeze()
-    assertParser('processSync', processor.Parser)
-    assertCompiler('processSync', processor.Compiler)
-
-    const file = vfile(doc)
-
-    processor.process(file, done)
-
-    assertDone('processSync', 'process', complete)
-
-    return file
-
-    /**
-     * @param {Error|null|undefined} [error]
-     * @returns {void}
-     */
-    function done(error) {
-      complete = true
-      bail(error)
-    }
-  }
-}
-
-/**
- * Check if `value` is a constructor.
- *
- * @param {unknown} value
- * @param {string} name
- * @returns {boolean}
- */
-function newable(value, name) {
-  return (
-    typeof value === 'function' &&
-    // Prototypes do exist.
-    // type-coverage:ignore-next-line
-    value.prototype &&
-    // A function with keys in its prototype is probably a constructor.
-    // Classes’ prototype methods are not enumerable, so we check if some value
-    // exists in the prototype.
-    // type-coverage:ignore-next-line
-    (keys(value.prototype) || name in value.prototype)
-  )
-}
-
-/**
- * Check if `value` is an object with keys.
- *
- * @param {Record<string, unknown>} value
- * @returns {boolean}
- */
-function keys(value) {
-  /** @type {string} */
-  let key
-
-  for (key in value) {
-    if (own.call(value, key)) {
-      return true
-    }
-  }
-
-  return false
-}
-
-/**
- * Assert a parser is available.
- *
- * @param {string} name
- * @param {unknown} value
- * @returns {asserts value is Parser}
- */
-function assertParser(name, value) {
-  if (typeof value !== 'function') {
-    throw new TypeError('Cannot `' + name + '` without `Parser`')
-  }
-}
-
-/**
- * Assert a compiler is available.
- *
- * @param {string} name
- * @param {unknown} value
- * @returns {asserts value is Compiler}
- */
-function assertCompiler(name, value) {
-  if (typeof value !== 'function') {
-    throw new TypeError('Cannot `' + name + '` without `Compiler`')
-  }
-}
-
-/**
- * Assert the processor is not frozen.
- *
- * @param {string} name
- * @param {unknown} frozen
- * @returns {asserts frozen is false}
- */
-function assertUnfrozen(name, frozen) {
-  if (frozen) {
-    throw new Error(
-      'Cannot call `' +
-        name +
-        '` on a frozen processor.\nCreate a new processor first, by calling it: use `processor()` instead of `processor`.'
-    )
-  }
-}
-
-/**
- * Assert `node` is a unist node.
- *
- * @param {unknown} node
- * @returns {asserts node is Node}
- */
-function assertNode(node) {
-  // `isPlainObj` unfortunately uses `any` instead of `unknown`.
-  // type-coverage:ignore-next-line
-  if (!isPlainObject(node) || typeof node.type !== 'string') {
-    throw new TypeError('Expected node, got `' + node + '`')
-    // Fine.
-  }
-}
-
-/**
- * Assert that `complete` is `true`.
- *
- * @param {string} name
- * @param {string} asyncName
- * @param {unknown} complete
- * @returns {asserts complete is true}
- */
-function assertDone(name, asyncName, complete) {
-  if (!complete) {
-    throw new Error(
-      '`' + name + '` finished async. Use `' + asyncName + '` instead'
-    )
-  }
-}
-
-/**
- * @param {VFileCompatible} [value]
- * @returns {VFile}
- */
-function vfile(value) {
-  return looksLikeAVFile(value) ? value : new VFile(value)
-}
-
-/**
- * @param {VFileCompatible} [value]
- * @returns {value is VFile}
- */
-function looksLikeAVFile(value) {
-  return Boolean(
-    value &&
-      typeof value === 'object' &&
-      'message' in value &&
-      'messages' in value
-  )
-}
-
-/**
- * @param {unknown} [value]
- * @returns {value is VFileValue}
- */
-function looksLikeAVFileValue(value) {
-  return typeof value === 'string' || is_buffer(value)
-}
-
-;// CONCATENATED MODULE: ./node_modules/unified/index.js
-
-
-
-/***/ }),
-
-/***/ 9607:
-/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
-
-"use strict";
-/* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
-/* harmony export */   "O": () => (/* binding */ convert)
-/* harmony export */ });
-/* unused harmony export is */
-/**
- * @typedef {import('unist').Node} Node
- * @typedef {import('unist').Parent} Parent
- */
-
-/**
- * @typedef {Record<string, unknown>} Props
- * @typedef {null | undefined | string | Props | TestFunctionAnything | Array<string | Props | TestFunctionAnything>} Test
- *   Check for an arbitrary node, unaware of TypeScript inferral.
- *
- * @callback TestFunctionAnything
- *   Check if a node passes a test, unaware of TypeScript inferral.
- * @param {unknown} this
- *   The given context.
- * @param {Node} node
- *   A node.
- * @param {number | null | undefined} [index]
- *   The node’s position in its parent.
- * @param {Parent | null | undefined} [parent]
- *   The node’s parent.
- * @returns {boolean | void}
- *   Whether this node passes the test.
- */
-
-/**
- * @template {Node} Kind
- *   Node type.
- * @typedef {Kind['type'] | Partial<Kind> | TestFunctionPredicate<Kind> | Array<Kind['type'] | Partial<Kind> | TestFunctionPredicate<Kind>>} PredicateTest
- *   Check for a node that can be inferred by TypeScript.
- */
-
-/**
- * Check if a node passes a certain test.
- *
- * @template {Node} Kind
- *   Node type.
- * @callback TestFunctionPredicate
- *   Complex test function for a node that can be inferred by TypeScript.
- * @param {Node} node
- *   A node.
- * @param {number | null | undefined} [index]
- *   The node’s position in its parent.
- * @param {Parent | null | undefined} [parent]
- *   The node’s parent.
- * @returns {node is Kind}
- *   Whether this node passes the test.
- */
-
-/**
- * @callback AssertAnything
- *   Check that an arbitrary value is a node, unaware of TypeScript inferral.
- * @param {unknown} [node]
- *   Anything (typically a node).
- * @param {number | null | undefined} [index]
- *   The node’s position in its parent.
- * @param {Parent | null | undefined} [parent]
- *   The node’s parent.
- * @returns {boolean}
- *   Whether this is a node and passes a test.
- */
-
-/**
- * Check if a node is a node and passes a certain node test.
- *
- * @template {Node} Kind
- *   Node type.
- * @callback AssertPredicate
- *   Check that an arbitrary value is a specific node, aware of TypeScript.
- * @param {unknown} [node]
- *   Anything (typically a node).
- * @param {number | null | undefined} [index]
- *   The node’s position in its parent.
- * @param {Parent | null | undefined} [parent]
- *   The node’s parent.
- * @returns {node is Kind}
- *   Whether this is a node and passes a test.
- */
-
-/**
- * Check if `node` is a `Node` and whether it passes the given test.
- *
- * @param node
- *   Thing to check, typically `Node`.
- * @param test
- *   A check for a specific node.
- * @param index
- *   The node’s position in its parent.
- * @param parent
- *   The node’s parent.
- * @returns
- *   Whether `node` is a node and passes a test.
- */
-const is =
-  /**
-   * @type {(
-   *   (() => false) &
-   *   (<Kind extends Node = Node>(node: unknown, test: PredicateTest<Kind>, index: number, parent: Parent, context?: unknown) => node is Kind) &
-   *   (<Kind extends Node = Node>(node: unknown, test: PredicateTest<Kind>, index?: null | undefined, parent?: null | undefined, context?: unknown) => node is Kind) &
-   *   ((node: unknown, test: Test, index: number, parent: Parent, context?: unknown) => boolean) &
-   *   ((node: unknown, test?: Test, index?: null | undefined, parent?: null | undefined, context?: unknown) => boolean)
-   * )}
-   */
-  (
-    /**
-     * @param {unknown} [node]
-     * @param {Test} [test]
-     * @param {number | null | undefined} [index]
-     * @param {Parent | null | undefined} [parent]
-     * @param {unknown} [context]
-     * @returns {boolean}
-     */
-    // eslint-disable-next-line max-params
-    function is(node, test, index, parent, context) {
-      const check = convert(test)
-
-      if (
-        index !== undefined &&
-        index !== null &&
-        (typeof index !== 'number' ||
-          index < 0 ||
-          index === Number.POSITIVE_INFINITY)
-      ) {
-        throw new Error('Expected positive finite index')
-      }
-
-      if (
-        parent !== undefined &&
-        parent !== null &&
-        (!is(parent) || !parent.children)
-      ) {
-        throw new Error('Expected parent node')
-      }
-
-      if (
-        (parent === undefined || parent === null) !==
-        (index === undefined || index === null)
-      ) {
-        throw new Error('Expected both parent and index')
-      }
-
-      // @ts-expect-error Looks like a node.
-      return node && node.type && typeof node.type === 'string'
-        ? Boolean(check.call(context, node, index, parent))
-        : false
-    }
-  )
-
-/**
- * Generate an assertion from a test.
- *
- * Useful if you’re going to test many nodes, for example when creating a
- * utility where something else passes a compatible test.
- *
- * The created function is a bit faster because it expects valid input only:
- * a `node`, `index`, and `parent`.
- *
- * @param test
- *   *   when nullish, checks if `node` is a `Node`.
- *   *   when `string`, works like passing `(node) => node.type === test`.
- *   *   when `function` checks if function passed the node is true.
- *   *   when `object`, checks that all keys in test are in node, and that they have (strictly) equal values.
- *   *   when `array`, checks if any one of the subtests pass.
- * @returns
- *   An assertion.
- */
-const convert =
-  /**
-   * @type {(
-   *   (<Kind extends Node>(test: PredicateTest<Kind>) => AssertPredicate<Kind>) &
-   *   ((test?: Test) => AssertAnything)
-   * )}
-   */
-  (
-    /**
-     * @param {Test} [test]
-     * @returns {AssertAnything}
-     */
-    function (test) {
-      if (test === undefined || test === null) {
-        return ok
-      }
-
-      if (typeof test === 'string') {
-        return typeFactory(test)
-      }
-
-      if (typeof test === 'object') {
-        return Array.isArray(test) ? anyFactory(test) : propsFactory(test)
-      }
-
-      if (typeof test === 'function') {
-        return castFactory(test)
-      }
-
-      throw new Error('Expected function, string, or object as test')
-    }
-  )
-
-/**
- * @param {Array<string | Props | TestFunctionAnything>} tests
- * @returns {AssertAnything}
- */
-function anyFactory(tests) {
-  /** @type {Array<AssertAnything>} */
-  const checks = []
-  let index = -1
-
-  while (++index < tests.length) {
-    checks[index] = convert(tests[index])
-  }
-
-  return castFactory(any)
-
-  /**
-   * @this {unknown}
-   * @param {Array<unknown>} parameters
-   * @returns {boolean}
-   */
-  function any(...parameters) {
-    let index = -1
-
-    while (++index < checks.length) {
-      if (checks[index].call(this, ...parameters)) return true
-    }
-
-    return false
-  }
-}
-
-/**
- * Turn an object into a test for a node with a certain fields.
- *
- * @param {Props} check
- * @returns {AssertAnything}
- */
-function propsFactory(check) {
-  return castFactory(all)
-
-  /**
-   * @param {Node} node
-   * @returns {boolean}
-   */
-  function all(node) {
-    /** @type {string} */
-    let key
-
-    for (key in check) {
-      // @ts-expect-error: hush, it sure works as an index.
-      if (node[key] !== check[key]) return false
-    }
-
-    return true
-  }
-}
-
-/**
- * Turn a string into a test for a node with a certain type.
- *
- * @param {string} check
- * @returns {AssertAnything}
- */
-function typeFactory(check) {
-  return castFactory(type)
-
-  /**
-   * @param {Node} node
-   */
-  function type(node) {
-    return node && node.type === check
-  }
-}
-
-/**
- * Turn a custom test into a test for a node that passes that test.
- *
- * @param {TestFunctionAnything} check
- * @returns {AssertAnything}
- */
-function castFactory(check) {
-  return assertion
-
-  /**
-   * @this {unknown}
-   * @param {unknown} node
-   * @param {Array<unknown>} parameters
-   * @returns {boolean}
-   */
-  function assertion(node, ...parameters) {
-    return Boolean(
-      node &&
-        typeof node === 'object' &&
-        'type' in node &&
-        // @ts-expect-error: fine.
-        Boolean(check.call(this, node, ...parameters))
-    )
-  }
-}
-
-function ok() {
-  return true
-}
-
-
-/***/ }),
-
-/***/ 7924:
-/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
-
-"use strict";
-/* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
-/* harmony export */   "y": () => (/* binding */ stringifyPosition)
-/* harmony export */ });
-/**
- * @typedef {import('unist').Node} Node
- * @typedef {import('unist').Point} Point
- * @typedef {import('unist').Position} Position
- */
-
-/**
- * @typedef NodeLike
- * @property {string} type
- * @property {PositionLike | null | undefined} [position]
- *
- * @typedef PositionLike
- * @property {PointLike | null | undefined} [start]
- * @property {PointLike | null | undefined} [end]
- *
- * @typedef PointLike
- * @property {number | null | undefined} [line]
- * @property {number | null | undefined} [column]
- * @property {number | null | undefined} [offset]
- */
-
-/**
- * Serialize the positional info of a point, position (start and end points),
- * or node.
- *
- * @param {Node | NodeLike | Position | PositionLike | Point | PointLike | null | undefined} [value]
- *   Node, position, or point.
- * @returns {string}
- *   Pretty printed positional info of a node (`string`).
- *
- *   In the format of a range `ls:cs-le:ce` (when given `node` or `position`)
- *   or a point `l:c` (when given `point`), where `l` stands for line, `c` for
- *   column, `s` for `start`, and `e` for end.
- *   An empty string (`''`) is returned if the given value is neither `node`,
- *   `position`, nor `point`.
- */
-function stringifyPosition(value) {
-  // Nothing.
-  if (!value || typeof value !== 'object') {
-    return ''
-  }
-
-  // Node.
-  if ('position' in value || 'type' in value) {
-    return position(value.position)
-  }
-
-  // Position.
-  if ('start' in value || 'end' in value) {
-    return position(value)
-  }
-
-  // Point.
-  if ('line' in value || 'column' in value) {
-    return point(value)
-  }
-
-  // ?
-  return ''
-}
-
-/**
- * @param {Point | PointLike | null | undefined} point
- * @returns {string}
- */
-function point(point) {
-  return index(point && point.line) + ':' + index(point && point.column)
-}
-
-/**
- * @param {Position | PositionLike | null | undefined} pos
- * @returns {string}
- */
-function position(pos) {
-  return point(pos && pos.start) + '-' + point(pos && pos.end)
-}
-
-/**
- * @param {number | null | undefined} value
- * @returns {number}
- */
-function index(value) {
-  return value && typeof value === 'number' ? value : 1
-}
-
-
-/***/ }),
-
-/***/ 2304:
-/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
-
-"use strict";
-
-// EXPORTS
-__nccwpck_require__.d(__webpack_exports__, {
-  "dR": () => (/* binding */ CONTINUE),
-  "BK": () => (/* binding */ EXIT),
-  "AM": () => (/* binding */ SKIP),
-  "S4": () => (/* binding */ visitParents)
-});
-
-// EXTERNAL MODULE: ./node_modules/unist-util-is/lib/index.js
-var lib = __nccwpck_require__(9607);
-;// CONCATENATED MODULE: ./node_modules/unist-util-visit-parents/lib/color.js
-/**
- * @param {string} d
- * @returns {string}
- */
-function color(d) {
-  return '\u001B[33m' + d + '\u001B[39m'
-}
-
-;// CONCATENATED MODULE: ./node_modules/unist-util-visit-parents/lib/index.js
-/**
- * @typedef {import('unist').Node} Node
- * @typedef {import('unist').Parent} Parent
- * @typedef {import('unist-util-is').Test} Test
- */
-
-/**
- * @typedef {boolean | 'skip'} Action
- *   Union of the action types.
- *
- * @typedef {number} Index
- *   Move to the sibling at `index` next (after node itself is completely
- *   traversed).
- *
- *   Useful if mutating the tree, such as removing the node the visitor is
- *   currently on, or any of its previous siblings.
- *   Results less than 0 or greater than or equal to `children.length` stop
- *   traversing the parent.
- *
- * @typedef {[(Action | null | undefined | void)?, (Index | null | undefined)?]} ActionTuple
- *   List with one or two values, the first an action, the second an index.
- *
- * @typedef {Action | ActionTuple | Index | null | undefined | void} VisitorResult
- *   Any value that can be returned from a visitor.
- */
-
-/**
- * @template {Node} [Visited=Node]
- *   Visited node type.
- * @template {Parent} [Ancestor=Parent]
- *   Ancestor type.
- * @callback Visitor
- *   Handle a node (matching `test`, if given).
- *
- *   Visitors are free to transform `node`.
- *   They can also transform the parent of node (the last of `ancestors`).
- *
- *   Replacing `node` itself, if `SKIP` is not returned, still causes its
- *   descendants to be walked (which is a bug).
- *
- *   When adding or removing previous siblings of `node` (or next siblings, in
- *   case of reverse), the `Visitor` should return a new `Index` to specify the
- *   sibling to traverse after `node` is traversed.
- *   Adding or removing next siblings of `node` (or previous siblings, in case
- *   of reverse) is handled as expected without needing to return a new `Index`.
- *
- *   Removing the children property of an ancestor still results in them being
- *   traversed.
- * @param {Visited} node
- *   Found node.
- * @param {Array<Ancestor>} ancestors
- *   Ancestors of `node`.
- * @returns {VisitorResult}
- *   What to do next.
- *
- *   An `Index` is treated as a tuple of `[CONTINUE, Index]`.
- *   An `Action` is treated as a tuple of `[Action]`.
- *
- *   Passing a tuple back only makes sense if the `Action` is `SKIP`.
- *   When the `Action` is `EXIT`, that action can be returned.
- *   When the `Action` is `CONTINUE`, `Index` can be returned.
- */
-
-/**
- * @template {Node} [Tree=Node]
- *   Tree type.
- * @template {Test} [Check=string]
- *   Test type.
- * @typedef {Visitor<import('./complex-types.js').Matches<import('./complex-types.js').InclusiveDescendant<Tree>, Check>, Extract<import('./complex-types.js').InclusiveDescendant<Tree>, Parent>>} BuildVisitor
- *   Build a typed `Visitor` function from a tree and a test.
- *
- *   It will infer which values are passed as `node` and which as `parents`.
- */
-
-
-
-
-/**
- * Continue traversing as normal.
- */
-const CONTINUE = true
-
-/**
- * Stop traversing immediately.
- */
-const EXIT = false
-
-/**
- * Do not traverse this node’s children.
- */
-const SKIP = 'skip'
-
-/**
- * Visit nodes, with ancestral information.
- *
- * This algorithm performs *depth-first* *tree traversal* in *preorder*
- * (**NLR**) or if `reverse` is given, in *reverse preorder* (**NRL**).
- *
- * You can choose for which nodes `visitor` is called by passing a `test`.
- * For complex tests, you should test yourself in `visitor`, as it will be
- * faster and will have improved type information.
- *
- * Walking the tree is an intensive task.
- * Make use of the return values of the visitor when possible.
- * Instead of walking a tree multiple times, walk it once, use `unist-util-is`
- * to check if a node matches, and then perform different operations.
- *
- * You can change the tree.
- * See `Visitor` for more info.
- *
- * @param tree
- *   Tree to traverse.
- * @param test
- *   `unist-util-is`-compatible test
- * @param visitor
- *   Handle each node.
- * @param reverse
- *   Traverse in reverse preorder (NRL) instead of the default preorder (NLR).
- * @returns
- *   Nothing.
- */
-const visitParents =
-  /**
-   * @type {(
-   *   (<Tree extends Node, Check extends Test>(tree: Tree, test: Check, visitor: BuildVisitor<Tree, Check>, reverse?: boolean | null | undefined) => void) &
-   *   (<Tree extends Node>(tree: Tree, visitor: BuildVisitor<Tree>, reverse?: boolean | null | undefined) => void)
-   * )}
-   */
-  (
-    /**
-     * @param {Node} tree
-     * @param {Test} test
-     * @param {Visitor<Node>} visitor
-     * @param {boolean | null | undefined} [reverse]
-     * @returns {void}
-     */
-    function (tree, test, visitor, reverse) {
-      if (typeof test === 'function' && typeof visitor !== 'function') {
-        reverse = visitor
-        // @ts-expect-error no visitor given, so `visitor` is test.
-        visitor = test
-        test = null
-      }
-
-      const is = (0,lib/* convert */.O)(test)
-      const step = reverse ? -1 : 1
-
-      factory(tree, undefined, [])()
-
-      /**
-       * @param {Node} node
-       * @param {number | undefined} index
-       * @param {Array<Parent>} parents
-       */
-      function factory(node, index, parents) {
-        /** @type {Record<string, unknown>} */
-        // @ts-expect-error: hush
-        const value = node && typeof node === 'object' ? node : {}
-
-        if (typeof value.type === 'string') {
-          const name =
-            // `hast`
-            typeof value.tagName === 'string'
-              ? value.tagName
-              : // `xast`
-              typeof value.name === 'string'
-              ? value.name
-              : undefined
-
-          Object.defineProperty(visit, 'name', {
-            value:
-              'node (' + color(node.type + (name ? '<' + name + '>' : '')) + ')'
-          })
-        }
-
-        return visit
-
-        function visit() {
-          /** @type {ActionTuple} */
-          let result = []
-          /** @type {ActionTuple} */
-          let subresult
-          /** @type {number} */
-          let offset
-          /** @type {Array<Parent>} */
-          let grandparents
-
-          if (!test || is(node, index, parents[parents.length - 1] || null)) {
-            result = toResult(visitor(node, parents))
-
-            if (result[0] === EXIT) {
-              return result
-            }
-          }
-
-          // @ts-expect-error looks like a parent.
-          if (node.children && result[0] !== SKIP) {
-            // @ts-expect-error looks like a parent.
-            offset = (reverse ? node.children.length : -1) + step
-            // @ts-expect-error looks like a parent.
-            grandparents = parents.concat(node)
-
-            // @ts-expect-error looks like a parent.
-            while (offset > -1 && offset < node.children.length) {
-              // @ts-expect-error looks like a parent.
-              subresult = factory(node.children[offset], offset, grandparents)()
-
-              if (subresult[0] === EXIT) {
-                return subresult
-              }
-
-              offset =
-                typeof subresult[1] === 'number' ? subresult[1] : offset + step
-            }
-          }
-
-          return result
-        }
-      }
-    }
-  )
-
-/**
- * Turn a return value into a clean result.
- *
- * @param {VisitorResult} value
- *   Valid return values from visitors.
- * @returns {ActionTuple}
- *   Clean result.
- */
-function toResult(value) {
-  if (Array.isArray(value)) {
-    return value
-  }
-
-  if (typeof value === 'number') {
-    return [CONTINUE, value]
-  }
-
-  return [value]
-}
-
-
-/***/ }),
-
-/***/ 7205:
-/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
-
-"use strict";
-__nccwpck_require__.r(__webpack_exports__);
-/* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
-/* harmony export */   "CONTINUE": () => (/* reexport safe */ _lib_index_js__WEBPACK_IMPORTED_MODULE_0__.dR),
-/* harmony export */   "EXIT": () => (/* reexport safe */ _lib_index_js__WEBPACK_IMPORTED_MODULE_0__.BK),
-/* harmony export */   "SKIP": () => (/* reexport safe */ _lib_index_js__WEBPACK_IMPORTED_MODULE_0__.AM),
-/* harmony export */   "visit": () => (/* reexport safe */ _lib_index_js__WEBPACK_IMPORTED_MODULE_1__.Vn)
-/* harmony export */ });
-/* harmony import */ var _lib_index_js__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(2304);
-/* harmony import */ var _lib_index_js__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(7942);
-// Note: types exported from `index.d.ts`
-
-
-
-/***/ }),
-
-/***/ 7942:
-/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
-
-"use strict";
-/* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
-/* harmony export */   "Vn": () => (/* binding */ visit)
-/* harmony export */ });
-/* harmony import */ var unist_util_visit_parents__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(2304);
-/**
- * @typedef {import('unist').Node} Node
- * @typedef {import('unist').Parent} Parent
- * @typedef {import('unist-util-is').Test} Test
- * @typedef {import('unist-util-visit-parents').VisitorResult} VisitorResult
- */
-
-/**
- * Check if `Child` can be a child of `Ancestor`.
- *
- * Returns the ancestor when `Child` can be a child of `Ancestor`, or returns
- * `never`.
- *
- * @template {Node} Ancestor
- *   Node type.
- * @template {Node} Child
- *   Node type.
- * @typedef {(
- *   Ancestor extends Parent
- *     ? Child extends Ancestor['children'][number]
- *       ? Ancestor
- *       : never
- *     : never
- * )} ParentsOf
- */
-
-/**
- * @template {Node} [Visited=Node]
- *   Visited node type.
- * @template {Parent} [Ancestor=Parent]
- *   Ancestor type.
- * @callback Visitor
- *   Handle a node (matching `test`, if given).
- *
- *   Visitors are free to transform `node`.
- *   They can also transform `parent`.
- *
- *   Replacing `node` itself, if `SKIP` is not returned, still causes its
- *   descendants to be walked (which is a bug).
- *
- *   When adding or removing previous siblings of `node` (or next siblings, in
- *   case of reverse), the `Visitor` should return a new `Index` to specify the
- *   sibling to traverse after `node` is traversed.
- *   Adding or removing next siblings of `node` (or previous siblings, in case
- *   of reverse) is handled as expected without needing to return a new `Index`.
- *
- *   Removing the children property of `parent` still results in them being
- *   traversed.
- * @param {Visited} node
- *   Found node.
- * @param {Visited extends Node ? number | null : never} index
- *   Index of `node` in `parent`.
- * @param {Ancestor extends Node ? Ancestor | null : never} parent
- *   Parent of `node`.
- * @returns {VisitorResult}
- *   What to do next.
- *
- *   An `Index` is treated as a tuple of `[CONTINUE, Index]`.
- *   An `Action` is treated as a tuple of `[Action]`.
- *
- *   Passing a tuple back only makes sense if the `Action` is `SKIP`.
- *   When the `Action` is `EXIT`, that action can be returned.
- *   When the `Action` is `CONTINUE`, `Index` can be returned.
- */
-
-/**
- * Build a typed `Visitor` function from a node and all possible parents.
- *
- * It will infer which values are passed as `node` and which as `parent`.
- *
- * @template {Node} Visited
- *   Node type.
- * @template {Parent} Ancestor
- *   Parent type.
- * @typedef {Visitor<Visited, ParentsOf<Ancestor, Visited>>} BuildVisitorFromMatch
- */
-
-/**
- * Build a typed `Visitor` function from a list of descendants and a test.
- *
- * It will infer which values are passed as `node` and which as `parent`.
- *
- * @template {Node} Descendant
- *   Node type.
- * @template {Test} Check
- *   Test type.
- * @typedef {(
- *   BuildVisitorFromMatch<
- *     import('unist-util-visit-parents/complex-types.js').Matches<Descendant, Check>,
- *     Extract<Descendant, Parent>
- *   >
- * )} BuildVisitorFromDescendants
- */
-
-/**
- * Build a typed `Visitor` function from a tree and a test.
- *
- * It will infer which values are passed as `node` and which as `parent`.
- *
- * @template {Node} [Tree=Node]
- *   Node type.
- * @template {Test} [Check=string]
- *   Test type.
- * @typedef {(
- *   BuildVisitorFromDescendants<
- *     import('unist-util-visit-parents/complex-types.js').InclusiveDescendant<Tree>,
- *     Check
- *   >
- * )} BuildVisitor
- */
-
-
-
-/**
- * Visit nodes.
- *
- * This algorithm performs *depth-first* *tree traversal* in *preorder*
- * (**NLR**) or if `reverse` is given, in *reverse preorder* (**NRL**).
- *
- * You can choose for which nodes `visitor` is called by passing a `test`.
- * For complex tests, you should test yourself in `visitor`, as it will be
- * faster and will have improved type information.
- *
- * Walking the tree is an intensive task.
- * Make use of the return values of the visitor when possible.
- * Instead of walking a tree multiple times, walk it once, use `unist-util-is`
- * to check if a node matches, and then perform different operations.
- *
- * You can change the tree.
- * See `Visitor` for more info.
- *
- * @param tree
- *   Tree to traverse.
- * @param test
- *   `unist-util-is`-compatible test
- * @param visitor
- *   Handle each node.
- * @param reverse
- *   Traverse in reverse preorder (NRL) instead of the default preorder (NLR).
- * @returns
- *   Nothing.
- */
-const visit =
-  /**
-   * @type {(
-   *   (<Tree extends Node, Check extends Test>(tree: Tree, test: Check, visitor: BuildVisitor<Tree, Check>, reverse?: boolean | null | undefined) => void) &
-   *   (<Tree extends Node>(tree: Tree, visitor: BuildVisitor<Tree>, reverse?: boolean | null | undefined) => void)
-   * )}
-   */
-  (
-    /**
-     * @param {Node} tree
-     * @param {Test} test
-     * @param {Visitor} visitor
-     * @param {boolean | null | undefined} [reverse]
-     * @returns {void}
-     */
-    function (tree, test, visitor, reverse) {
-      if (typeof test === 'function' && typeof visitor !== 'function') {
-        reverse = visitor
-        visitor = test
-        test = null
-      }
-
-      (0,unist_util_visit_parents__WEBPACK_IMPORTED_MODULE_0__/* .visitParents */ .S4)(tree, test, overload, reverse)
-
-      /**
-       * @param {Node} node
-       * @param {Array<Parent>} parents
-       */
-      function overload(node, parents) {
-        const parent = parents[parents.length - 1]
-        return visitor(
-          node,
-          parent ? parent.children.indexOf(node) : null,
-          parent
-        )
-      }
-    }
-  )
-
-
-
-
-/***/ }),
-
 /***/ 4046:
 /***/ ((module) => {
 
@@ -26203,10 +26179,10 @@ const { readFileSync, writeFileSync, readdirSync } = __nccwpck_require__(7147);
 const { join } = __nccwpck_require__(1017);
 const core = __nccwpck_require__(2186);
 const translator = __nccwpck_require__(3571);
-const { unified } = __nccwpck_require__(4601);
-const parse = __nccwpck_require__(2729);
-const stringify = __nccwpck_require__(4252);
-const { visit } = __nccwpck_require__(7205);
+const unified = __nccwpck_require__(5075);
+const parse = __nccwpck_require__(2943);
+const stringify = __nccwpck_require__(4937);
+const visit = __nccwpck_require__(199);
 const simpleGit = __nccwpck_require__(9103);
 
 const git = simpleGit();
