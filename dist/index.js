@@ -20551,7 +20551,7 @@ const mainDir = ".";
 
 let README = readdirSync(mainDir).includes("readme.md") ? "readme.md" : "README.md";
 
-const lang_from = "auto" || 0 || 0;
+const lang_from = core.getInput("LANG_FROM") || "auto";
 const lang_to = core.getInput("LANG_TO") || "pt";
 
 const readme = readFileSync(join(mainDir, README), { encoding: "utf8" });
@@ -20591,16 +20591,16 @@ const translatedText = originalText.map(async (text) => {
 
 async function writeToFile() {
   await Promise.all(translatedText);
-  writeFileSync(join(mainDir, `README.${lang}.md`), unified().use(stringify).stringify(readmeAST), "utf8");
-  console.log(`README.${lang}.md written`);
+  writeFileSync(join(mainDir, `README.${lang_to}.md`), unified().use(stringify).stringify(readmeAST), "utf8");
+  console.log(`README.${lang_to}.md written`);
 }
 
-async function commitChanges(lang) {
+async function commitChanges() {
   console.log("commit started");
-  await git.add(`./README.${lang}.md`);
+  await git.add(`./README.${lang_to}.md`);
   await git.addConfig("user.name", "github-actions[bot]");
   await git.addConfig("user.email", "41898282+github-actions[bot]@users.noreply.github.com");
-  await git.commit(`Added README.${lang}.md - https://github.com/dliocode/translate-md`);
+  await git.commit(`Added README.${lang_to}.md - https://github.com/dliocode/translate-md`);
   console.log("finished commit");
   await git.push();
   console.log("pushed");
@@ -20610,7 +20610,7 @@ async function translateReadme() {
   try {
     await git.pull();
     await writeToFile();
-    await commitChanges(lang);
+    await commitChanges();
     console.log("Done");
   } catch (error) {
     console.log({ all: JSON.stringify(error) })
