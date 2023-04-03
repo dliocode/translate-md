@@ -20735,31 +20735,17 @@ const parse = __nccwpck_require__(4859);
 const stringify = __nccwpck_require__(7114);
 const visit = __nccwpck_require__(199);
 const simpleGit = __nccwpck_require__(9103);
+
 const git = simpleGit();
-
-const toAst = (markdown) => {
-  return unified().use(parse).parse(markdown);
-};
-
-const toMarkdown = (ast) => {
-  return unified().use(stringify).stringify(ast);
-};
-
 const mainDir = ".";
+
 let README = readdirSync(mainDir).includes("readme.md") ? "readme.md" : "README.md";
+
 const lang = core.getInput("LANG") || "pt";
 const readme = readFileSync(join(mainDir, README), { encoding: "utf8" });
-const readmeAST = toAst(readme);
+const readmeAST = unified().use(parse).parse(readme)// toAst
 
 let originalText = [];
-
-function delay(milliseconds) {
-  return new Promise(function (resolve) {
-    setTimeout(function () {
-      resolve('Resposta após ' + milliseconds + ' ms');
-    }, milliseconds);
-  });
-}
 
 visit(readmeAST, async (node) => {
   if (node.type === "text") {
@@ -20771,14 +20757,17 @@ visit(readmeAST, async (node) => {
 
     const translation = node.value
 
-    console.log({ lang, source, translation })
-
-    // await delay(100);
+    console.log({ local: 'visit', lang, source, translation })
   }
 });
 
 const translatedText = originalText.map(async (text) => {
-  return await translate(text, { to: lang }).text;
+
+  const data = await translate(text, { to: lang }).text;
+
+  console.log({ local: 'translatedText', lang, source: text, translation: data })
+
+  return data
 });
 
 async function writeToFile() {
@@ -20788,7 +20777,7 @@ async function writeToFile() {
 
   writeFileSync(
     join(mainDir, `README.${lang}.md`),
-    toMarkdown(readmeAST),
+    unified().use(stringify).stringify(readmeAST), // toMarkdown  
     "utf8"
   );
 
