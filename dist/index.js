@@ -20565,6 +20565,7 @@ visit(readmeAST, async (node) => {
     node.value = (await translator(node.value, { to: lang })).text;
 
     if ((data.endsWith(' ')) && (!node.value.endsWith(' '))) node.value += ' ';
+    if ((data.startsWith(' ')) && (!node.value.startsWith(' '))) node.value = ' ' + node.value;
 
     console.log({ data, translate: node.value })
   }
@@ -20573,6 +20574,7 @@ visit(readmeAST, async (node) => {
 const translatedText = originalText.map(async (text) => {
   let data = (await translator(text, { to: lang })).text;
   if ((text.endsWith(' ')) && (!data.endsWith(' '))) data += ' ';
+  if ((text.startsWith(' ')) && (!data.startsWith(' '))) data += ' ';
 
   return data;
 });
