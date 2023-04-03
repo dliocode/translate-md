@@ -20779,14 +20779,14 @@ async function writeToFile() {
 
 async function commitChanges(lang) {
   console.log("commit started");
-  await git.add(`./README."${lang}".md`);
+  await git.add(`./README.${lang}.md`);
   await git.addConfig("user.name", "github-actions[bot]");
   await git.addConfig(
     "user.email",
     "41898282+github-actions[bot]@users.noreply.github.com"
   );
   await git.commit(
-    `docs: Added README."${lang}".md translation via https://github.com/dliocode/translate-md`
+    `docs: Added README.${lang}.md translation via https://github.com/dliocode/translate-md`
   );
   console.log("finished commit");
   await git.push();
