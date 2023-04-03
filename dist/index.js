@@ -20764,7 +20764,14 @@ function delay(milliseconds) {
 visit(readmeAST, async (node) => {
   if (node.type === "text") {
     originalText.push(node.value);
+
+    const source = node.value
+
     node.value = (await translate(node.value, { to: lang })).text;
+
+    const translation = node.value
+
+    console.log({ lang, source, translation })
 
     await delay(100);
   }
