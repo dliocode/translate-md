@@ -20559,17 +20559,24 @@ const readmeAST = unified().use(parse).parse(readme);
 
 let originalText = [];
 
-visit(readmeAST, async (node) => {
-  if (node.type === "text") {
-    const data = node.value
+try {
+  visit(readmeAST, async (node) => {
+    if (node.type === "text") {
+      const data = node.value
 
-    originalText.push(node.value);
-    node.value = (await translator(node.value, { from: lang_from, to: lang_to })).text;
+      originalText.push(node.value);
+      node.value = (await translator(node.value, { from: lang_from, to: lang_to })).text;
 
-    if ((data.endsWith(' ')) && (!node.value.endsWith(' '))) node.value += ' ';
-    if ((data.startsWith(' ')) && (!node.value.startsWith(' '))) node.value = ' ' + node.value;
-  }
-});
+      if ((data.endsWith(' ')) && (!node.value.endsWith(' '))) node.value += ' ';
+      if ((data.startsWith(' ')) && (!node.value.startsWith(' '))) node.value = ' ' + node.value;
+
+      console.log({ lang_from, lang_to, text_from: data, text_to: node.value })
+    }
+  });
+} catch (error) {
+  console.log({ visit: JSON.stringify(error) })
+  throw new Error(error);
+}
 
 console.log({ lang_from, lang_to })
 
@@ -20605,7 +20612,7 @@ async function translateReadme() {
     await commitChanges(lang);
     console.log("Done");
   } catch (error) {
-    console.log(JSON.stringify(error))
+    console.log({ all: JSON.stringify(error) })
     throw new Error(error);
   }
 }
