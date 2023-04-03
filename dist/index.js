@@ -20753,10 +20753,20 @@ const readmeAST = toAst(readme);
 
 let originalText = [];
 
+function delay(milliseconds) {
+  return new Promise(function (resolve) {
+    setTimeout(function () {
+      resolve('Resposta após ' + milliseconds + ' ms');
+    }, milliseconds);
+  });
+}
+
 visit(readmeAST, async (node) => {
   if (node.type === "text") {
     originalText.push(node.value);
     node.value = (await translate(node.value, { to: lang })).text;
+
+    await delay(100);
   }
 });
 
