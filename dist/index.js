@@ -20767,7 +20767,6 @@ async function writeToFile() {
 
 async function commitChanges(lang) {
   console.log("commit started");
-  await git.pull();
   await git.add(`./README.${lang}.md`);
   await git.addConfig("user.name", "github-actions[bot]");
   await git.addConfig("user.email", "41898282+github-actions[bot]@users.noreply.github.com");
@@ -20779,6 +20778,7 @@ async function commitChanges(lang) {
 
 async function translateReadme() {
   try {
+    await git.pull();
     await writeToFile();
     await commitChanges(lang);
     console.log("Done");
