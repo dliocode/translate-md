@@ -20754,11 +20754,11 @@ const readme = readFileSync(join(mainDir, README), { encoding: "utf8" });
 const readmeAST = toAst(readme);
 console.log("AST CREATED AND READ");
 
-let originalText = [];
+// let originalText = [];
 
 visit(readmeAST, async (node) => {
   if (node.type === "text") {
-    originalText.push(node.value);
+    // originalText.push(node.value);
     node.value = (await $(node.value, { to: lang })).text;
   }
 });
@@ -20768,7 +20768,7 @@ const translatedText = originalText.map(async (text) => {
 });
 
 async function writeToFile() {
-  await Promise.all(translatedText);
+  // await Promise.all(translatedText);
   writeFileSync(
     join(mainDir, `README.${lang}.md`),
     toMarkdown(readmeAST),
@@ -20791,7 +20791,6 @@ async function commitChanges(lang) {
 
 async function translateReadme() {
   try {
-    await git.pull();
     await writeToFile();
     await commitChanges(lang);
     console.log("Done");
