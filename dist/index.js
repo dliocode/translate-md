@@ -20773,7 +20773,7 @@ visit(readmeAST, async (node) => {
 
     console.log({ lang, source, translation })
 
-    await delay(100);
+    // await delay(100);
   }
 });
 
