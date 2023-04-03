@@ -20761,6 +20761,8 @@ visit(readmeAST, async (node) => {
   }
 });
 
+console.log({ originalText })
+
 const translatedText = originalText.map(async (text) => {
 
   const data = await translate(text, { to: lang }).text;
