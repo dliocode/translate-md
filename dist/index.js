@@ -20778,16 +20778,21 @@ visit(readmeAST, async (node) => {
 });
 
 const translatedText = originalText.map(async (text) => {
-  return (await translate(text, { to: lang })).text;
+  return await translate(text, { to: lang }).text;
 });
 
 async function writeToFile() {
   await Promise.all(translatedText);
+
+  console.log({ translatedText })
+
   writeFileSync(
     join(mainDir, `README.${lang}.md`),
     toMarkdown(readmeAST),
     "utf8"
   );
+
+  console.log({ readmeAST })
 }
 
 async function commitChanges(lang) {
@@ -20797,6 +20802,7 @@ async function commitChanges(lang) {
   await git.addConfig("user.email", "github-actions[bot]@users.noreply.github.com");
   await git.commit(`Added README."${lang}".md - Translate by https://github.com/dliocode/translate-md`);
   await git.push();
+  console.log("commit finish");
 }
 
 async function translateReadme() {
