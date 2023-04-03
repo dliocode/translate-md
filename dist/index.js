@@ -20552,7 +20552,7 @@ const mainDir = ".";
 let README = readdirSync(mainDir).includes("readme.md") ? "readme.md" : "README.md";
 
 const lang_from = core.getInput("LANG_FROM") || "en";
-const lang_to = core.getInput("LANG_TO") || "en";
+const lang_to = core.getInput("LANG_TO") || "pt";
 
 const readme = readFileSync(join(mainDir, README), { encoding: "utf8" });
 const readmeAST = unified().use(parse).parse(readme);
@@ -20568,10 +20568,10 @@ visit(readmeAST, async (node) => {
 
     if ((data.endsWith(' ')) && (!node.value.endsWith(' '))) node.value += ' ';
     if ((data.startsWith(' ')) && (!node.value.startsWith(' '))) node.value = ' ' + node.value;
-
-    console.log({ data, translate: node.value })
   }
 });
+
+console.log({ lang_from, lang_to })
 
 const translatedText = originalText.map(async (text) => {
   let data = (await translator(text, { from: lang_from, to: lang_to })).text;
