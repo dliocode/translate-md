@@ -25,17 +25,21 @@ jobs:
       - name: Adding README - English
         uses: dliocode/translate-md@main
         with:
-          LANG: en
+          LANG_FROM: pt
+          LANG_TO: en
       - name: Adding README - Français
         uses: dliocode/translate-md@main
         with:
-          LANG: fr
+          LANG_FROM: pt		
+          LANG_TO: fr
       - name: Adding README - Italiano
         uses: dliocode/translate-md@main
         with:
-          LANG: it
+          LANG_FROM: pt		
+          LANG_TO: it
       - name: Adding README - Deutsch
         uses: dliocode/translate-md@main
         with:
-          LANG: de
+          LANG_FROM: pt		
+          LANG_TO: de
 ```

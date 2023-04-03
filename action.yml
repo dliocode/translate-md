@@ -3,11 +3,16 @@ author: DLIOCode
 description: Translate the Readme to another language
 
 inputs:
-  LANG:
-    description: 'The Language you want to translate to'
-    required: false
-    default: 'pt'
+  LANG_FROM:
+    description: 'The language your readme is in'
+    required: true
+    default: 'en'
 
+  LANG_TO:
+    description: 'The Language you want to translate to'
+    required: true
+    default: 'pt'
+   
 runs:
   using: 'node12'
   main: 'dist/index.js'
