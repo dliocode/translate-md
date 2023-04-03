@@ -20783,7 +20783,7 @@ async function writeToFile() {
     "utf8"
   );
 
-  console.log({ readmeAST })
+  console.log({ stringify, readmeAST })
 }
 
 async function commitChanges(lang) {
