@@ -20763,9 +20763,9 @@ visit(readmeAST, async (node) => {
   }
 });
 
-const translatedText = originalText.map(async (text) => {
-  return (await $(text, { to: lang })).text;
-});
+// const translatedText = originalText.map(async (text) => {
+//   return (await $(text, { to: lang })).text;
+// });
 
 async function writeToFile() {
   // await Promise.all(translatedText);
