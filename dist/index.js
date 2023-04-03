@@ -20551,7 +20551,7 @@ const mainDir = ".";
 
 let README = readdirSync(mainDir).includes("readme.md") ? "readme.md" : "README.md";
 
-const lang_from = core.getInput("LANG_FROM") || "auto";
+const lang_from = "auto" || 0 || 0;
 const lang_to = core.getInput("LANG_TO") || "pt";
 
 const readme = readFileSync(join(mainDir, README), { encoding: "utf8" });
@@ -20564,8 +20564,14 @@ try {
     if (node.type === "text") {
       const data = node.value
 
-      originalText.push(node.value);
-      node.value = (await translator(node.value, { from: lang_from, to: lang_to })).text;
+      try {
+        originalText.push(node.value);
+        node.value = (await translator(node.value, { from: lang_from, to: lang_to })).text;
+      } catch (error) {
+        console.log({ translator: JSON.stringify(error) })
+        throw new Error(error);
+      }
+
 
       if ((data.endsWith(' ')) && (!node.value.endsWith(' '))) node.value += ' ';
       if ((data.startsWith(' ')) && (!node.value.startsWith(' '))) node.value = ' ' + node.value;
