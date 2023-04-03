@@ -20765,7 +20765,7 @@ async function commitChanges(lang) {
   await git.commit(`Added README."${lang}".md - Translate by https://github.com/dliocode/translate-md`);
   await git.push((err, update) => {
     if (err) console.error({ err })
-    else if (update) console.log({ changes: update.summary.changes })
+    else if (update) console.log({ changes: update.summary })
   });
 
 
