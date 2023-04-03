@@ -20551,8 +20551,8 @@ const mainDir = ".";
 
 let README = readdirSync(mainDir).includes("readme.md") ? "readme.md" : "README.md";
 
-const lang_to = core.getInput("LANG_TO") || "en";
 const lang_from = core.getInput("LANG_FROM") || "en";
+const lang_to = core.getInput("LANG_TO") || "en";
 
 const readme = readFileSync(join(mainDir, README), { encoding: "utf8" });
 const readmeAST = unified().use(parse).parse(readme);

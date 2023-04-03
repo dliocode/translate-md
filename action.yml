@@ -5,12 +5,12 @@ description: Translate the Readme to another language
 inputs:
   LANG_FROM:
     description: 'The language your readme is in'
-    required: true
+    required: false
     default: 'en'
 
   LANG_TO:
     description: 'The Language you want to translate to'
-    required: true
+    required: false
     default: 'pt'
    
 runs:
