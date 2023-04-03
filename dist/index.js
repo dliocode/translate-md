@@ -20560,15 +20560,21 @@ let originalText = [];
 visit(readmeAST, async (node) => {
   if (node.type === "text") {
     const data = node.value
+
     originalText.push(node.value);
     node.value = (await translator(node.value, { to: lang })).text;
+
+    if ((data.endsWith(' ')) && (!node.value.endsWith(' '))) node.value += ' ';
 
     console.log({ data, translate: node.value })
   }
 });
 
 const translatedText = originalText.map(async (text) => {
-  return (await translator(text, { to: lang })).text;
+  let data = (await translator(text, { to: lang })).text;
+  if ((text.endsWith(' ')) && (!data.endsWith(' '))) data += ' ';
+
+  return data;
 });
 
 async function writeToFile() {
