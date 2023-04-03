@@ -20551,7 +20551,9 @@ const mainDir = ".";
 
 let README = readdirSync(mainDir).includes("readme.md") ? "readme.md" : "README.md";
 
-const lang = core.getInput("LANG") || "zh-CN";
+const lang = core.getInput("LANG") || "en";
+const lang_from = core.getInput("LANG_FROM") || "en";
+
 const readme = readFileSync(join(mainDir, README), { encoding: "utf8" });
 const readmeAST = unified().use(parse).parse(readme);
 
@@ -20562,7 +20564,7 @@ visit(readmeAST, async (node) => {
     const data = node.value
 
     originalText.push(node.value);
-    node.value = (await translator(node.value, { to: lang })).text;
+    node.value = (await translator(node.value, { from: lang_from, to: lang })).text;
 
     if ((data.endsWith(' ')) && (!node.value.endsWith(' '))) node.value += ' ';
     if ((data.startsWith(' ')) && (!node.value.startsWith(' '))) node.value = ' ' + node.value;
@@ -20572,7 +20574,7 @@ visit(readmeAST, async (node) => {
 });
 
 const translatedText = originalText.map(async (text) => {
-  let data = (await translator(text, { to: lang })).text;
+  let data = (await translator(text, { from: lang_from, to: lang })).text;
   if ((text.endsWith(' ')) && (!data.endsWith(' '))) data += ' ';
   if ((text.startsWith(' ')) && (!data.startsWith(' '))) data += ' ';
 
