@@ -20779,7 +20779,7 @@ async function writeToFile() {
 
 async function commitChanges(lang) {
   console.log("commit started");
-  await git.add("./*");
+  await git.add(`./README."${lang}".md`);
   await git.addConfig("user.name", "github-actions[bot]");
   await git.addConfig(
     "user.email",
