@@ -4,13 +4,15 @@ Translate the Readme to another language
 ### Example Action Workflows
 
 ```yml
-name: Translate-md
+name: dliocode-translate-md
 
 on:
   push:
     branches:
       - main
       - master
+    paths:
+      - 'README.md'    	  
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,24 +24,24 @@ jobs:
           node-version: 12.x
 
       # ISO Langusge Codes: https://cloud.google.com/translate/docs/languages                  
+      - name: Adding README - Português
+        uses: dliocode/translate-md@main
+        with:
+          LANG_TO: pt
       - name: Adding README - English
         uses: dliocode/translate-md@main
         with:
-          LANG_FROM: pt
           LANG_TO: en
       - name: Adding README - Français
         uses: dliocode/translate-md@main
-        with:
-          LANG_FROM: pt		
+        with:          
           LANG_TO: fr
       - name: Adding README - Italiano
         uses: dliocode/translate-md@main
         with:
-          LANG_FROM: pt		
           LANG_TO: it
       - name: Adding README - Deutsch
         uses: dliocode/translate-md@main
         with:
-          LANG_FROM: pt		
           LANG_TO: de
 ```
