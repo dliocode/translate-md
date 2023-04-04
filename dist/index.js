@@ -20577,8 +20577,6 @@ try {
   throw new Error(error);
 }
 
-console.log({ lang_from, lang_to })
-
 const translatedText = originalText.map(async (text) => {
   let data = (await translator(text, { to: lang_to })).text;
 
