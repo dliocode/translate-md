@@ -20551,7 +20551,6 @@ const mainDir = ".";
 
 let README = readdirSync(mainDir).includes("readme.md") ? "readme.md" : "README.md";
 
-const lang_from = "auto" || 0 || 0;
 const lang_to = core.getInput("LANG_TO") || "pt";
 
 const readme = readFileSync(join(mainDir, README), { encoding: "utf8" });
@@ -20564,19 +20563,13 @@ try {
     if (node.type === "text") {
       const data = node.value
 
-      try {
-        originalText.push(node.value);
-        node.value = (await translator(node.value, { from: lang_from, to: lang_to })).text;
-      } catch (error) {
-        console.log({ translator: JSON.stringify(error) })
-        throw new Error(error);
-      }
-
+      originalText.push(node.value);
+      node.value = (await translator(node.value, { to: lang_to })).text;
 
       if ((data.endsWith(' ')) && (!node.value.endsWith(' '))) node.value += ' ';
       if ((data.startsWith(' ')) && (!node.value.startsWith(' '))) node.value = ' ' + node.value;
 
-      console.log({ lang_from, lang_to, text_from: data, text_to: node.value })
+      // console.log({ lang_from, lang_to, text_from: data, text_to: node.value })
     }
   });
 } catch (error) {
@@ -20587,7 +20580,7 @@ try {
 console.log({ lang_from, lang_to })
 
 const translatedText = originalText.map(async (text) => {
-  let data = (await translator(text, { from: lang_from, to: lang_to })).text;
+  let data = (await translator(text, { to: lang_to })).text;
 
   if ((text.endsWith(' ')) && (!data.endsWith(' '))) data += ' ';
   if ((text.startsWith(' ')) && (!data.startsWith(' '))) data += ' ';
@@ -20606,7 +20599,7 @@ async function commitChanges() {
   await git.add(`./README.${lang_to}.md`);
   await git.addConfig("user.name", "github-actions[bot]");
   await git.addConfig("user.email", "41898282+github-actions[bot]@users.noreply.github.com");
-  await git.commit(`Added README.${lang_to}.md - https://github.com/dliocode/translate-md`);
+  await git.commit(`Added README.${lang_to}.md - Translation by https://github.com/dliocode/translate-md`);
   console.log("finished commit");
   await git.push();
   console.log("pushed");
@@ -20619,7 +20612,7 @@ async function translateReadme() {
     await commitChanges();
     console.log("Done");
   } catch (error) {
-    console.log({ all: JSON.stringify(error) })
+    console.log({ error: JSON.stringify(error) })
     throw new Error(error);
   }
 }
